@@ -31,3 +31,4 @@ public class ClassRoomConfiguration : IEntityTypeConfiguration<ClassRoom>
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+

@@ -62,3 +62,4 @@ We implemented a **two-tiered expiry strategy**:
 - Per UI Rule 3, the frontend polls `/classes` every 3 seconds to keep seat availability live without manual refreshes.
 - Student ID and active hold ID are persisted in the browser's `localStorage`.
 - Additionally, if a student inputs their 17-digit ID on a fresh session, the frontend queries `/me/holds` to check for any existing unexpired `HELD` seats and automatically loads the countdown timer.
+

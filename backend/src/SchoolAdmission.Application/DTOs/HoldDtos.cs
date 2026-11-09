@@ -29,3 +29,4 @@ public record StudentHoldResponse(
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("expiresAt")] DateTime ExpiresAt
 );
+

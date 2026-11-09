@@ -10,3 +10,4 @@ public interface IHoldService
     Task CancelHoldAsync(string holdId, string studentId, CancellationToken cancellationToken = default);
     Task<List<StudentHoldResponse>> GetStudentHoldsAsync(string studentId, CancellationToken cancellationToken = default);
 }
+

@@ -92,3 +92,4 @@ public class ClassServiceTests
         target.AvailableSeats.Should().Be(35); // 50 - (10 + 5)
     }
 }
+

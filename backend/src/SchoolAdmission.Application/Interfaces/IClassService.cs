@@ -8,3 +8,4 @@ public interface IClassService
     Task<List<ClassResponse>> GetAllClassesAsync(CancellationToken cancellationToken = default);
     Task<ClassResponse> GetClassByIdAsync(string classId, CancellationToken cancellationToken = default);
 }
+

@@ -50,3 +50,4 @@ public class ClassRepository : IClassRepository
         await _context.Classes.AddAsync(classRoom, cancellationToken);
     }
 }
+

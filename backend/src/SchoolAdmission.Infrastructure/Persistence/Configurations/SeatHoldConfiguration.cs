@@ -43,3 +43,4 @@ public class SeatHoldConfiguration : IEntityTypeConfiguration<SeatHold>
         builder.HasIndex(h => new { h.StudentId, h.ClassId });
     }
 }
+

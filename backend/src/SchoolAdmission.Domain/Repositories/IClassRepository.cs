@@ -9,3 +9,4 @@ public interface IClassRepository
     Task<List<ClassRoom>> GetAllAsync(CancellationToken cancellationToken = default);
     Task AddAsync(ClassRoom classRoom, CancellationToken cancellationToken = default);
 }
+

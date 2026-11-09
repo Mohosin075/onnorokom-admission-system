@@ -20,3 +20,4 @@ public class ApplicationDbContext : DbContext
         modelBuilder.ApplyConfiguration(new SeatHoldConfiguration());
     }
 }
+

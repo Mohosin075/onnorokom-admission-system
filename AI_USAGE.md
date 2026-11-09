@@ -30,3 +30,4 @@ This document transparently outlines the usage of AI tools during the developmen
 - **AI Initial Output:** Imported TypeScript interfaces directly using standard `import { ClassItem } from './types'`.
 - **Problem:** Vite/TS configured with `verbatimModuleSyntax: true` failed the build with error `TS1484: 'ClassItem' is a type and must be imported using a type-only import`.
 - **Correction:** Refactored all type imports to use `import type { ... }`, resolving all build errors.
+

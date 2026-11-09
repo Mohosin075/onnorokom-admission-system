@@ -21,3 +21,4 @@ public record ClassResponse(
     [property: JsonPropertyName("confirmedSeats")] int ConfirmedSeats,
     [property: JsonPropertyName("availableSeats")] int AvailableSeats
 );
+

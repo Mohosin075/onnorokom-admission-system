@@ -15,3 +15,4 @@ public interface IHoldRepository
     Task AddAsync(SeatHold hold, CancellationToken cancellationToken = default);
     Task UpdateAsync(SeatHold hold, CancellationToken cancellationToken = default);
 }
+

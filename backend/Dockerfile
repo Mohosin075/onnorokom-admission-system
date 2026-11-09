@@ -33,3 +33,4 @@ EXPOSE 8080
 COPY --from=build /app/publish .
 
 ENTRYPOINT ["dotnet", "SchoolAdmission.Api.dll"]
+
