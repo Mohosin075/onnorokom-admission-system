@@ -200,27 +200,37 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          {isHeld && (
-            <>
-              <button
-                onClick={handleConfirmPayment}
-                disabled={actionLoading || isExpired}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md shadow-emerald-200 hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <CreditCard className="w-4 h-4 mr-2" />
-                {actionLoading ? 'Processing...' : 'Pay Admission Fee'}
-              </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Pay Fee Button: Active when HELD, explicitly DISABLED when EXPIRED per Rule 5.2 */}
+          {(isHeld || isExpired) && (
+            <button
+              onClick={handleConfirmPayment}
+              disabled={isExpired || actionLoading}
+              className={`flex-1 sm:flex-initial inline-flex items-center justify-center px-5 py-2.5 text-sm font-bold rounded-xl transition-all shadow-sm ${
+                isExpired
+                  ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-60'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 hover:shadow-lg'
+              }`}
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              {actionLoading
+                ? 'Processing Payment...'
+                : isExpired
+                ? 'ভর্তি ফি দিন (মেয়াদ উত্তীর্ণ / Expired)'
+                : 'ভর্তি ফি দিন (Pay Admission Fee)'}
+            </button>
+          )}
 
-              <button
-                onClick={handleCancelHold}
-                disabled={actionLoading}
-                className="inline-flex items-center justify-center px-4 py-2.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 text-sm font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-40"
-              >
-                <XCircle className="w-4 h-4 mr-1.5" />
-                Cancel
-              </button>
-            </>
+          {/* Cancel Hold Button */}
+          {isHeld && (
+            <button
+              onClick={handleCancelHold}
+              disabled={actionLoading}
+              className="inline-flex items-center justify-center px-4 py-2.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 text-sm font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-40"
+            >
+              <XCircle className="w-4 h-4 mr-1.5" />
+              বাতিল (Cancel)
+            </button>
           )}
 
           {(isExpired || isCancelled || isConfirmed) && (

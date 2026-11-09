@@ -10,7 +10,7 @@ import type { ClassItem } from './types';
 import { AlertCircle, X } from 'lucide-react';
 
 const MainDashboard: React.FC = () => {
-  const { activeHoldId, setActiveHoldId } = useStudent();
+  const { studentId, activeHoldId, setActiveHoldId } = useStudent();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loadingClasses, setLoadingClasses] = useState<boolean>(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -31,6 +31,22 @@ const MainDashboard: React.FC = () => {
       if (!isBackground) setLoadingClasses(false);
     }
   }, []);
+
+  // Auto-restore active hold from server if valid student ID is set but activeHoldId is empty
+  useEffect(() => {
+    if (!activeHoldId && studentId && /^\d{17}$/.test(studentId)) {
+      api.getMyHolds(studentId).then((myHolds) => {
+        const currentActive = myHolds.find(
+          (h) => h.status === 'HELD' && new Date(h.expiresAt).getTime() > Date.now()
+        );
+        if (currentActive) {
+          setActiveHoldId(currentActive.holdId);
+        }
+      }).catch(() => {
+        // Silently ignore on background recovery
+      });
+    }
+  }, [studentId, activeHoldId, setActiveHoldId]);
 
   // Initial fetch and auto-refresh polling every 3 seconds (Mandatory UI Rule 3)
   useEffect(() => {

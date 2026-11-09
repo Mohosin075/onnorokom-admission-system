@@ -80,3 +80,4 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCreateClass }) => {
     </header>
   );
 };
+

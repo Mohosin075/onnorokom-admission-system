@@ -130,12 +130,12 @@ export const ClassList: React.FC<ClassListProps> = ({
                     {isApplying ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Holding Seat...</span>
+                        <span>আসন হোল্ড হচ্ছে...</span>
                       </>
                     ) : isFull ? (
-                      <span>Seats Filled</span>
+                      <span>আসন পূর্ণ (Full)</span>
                     ) : (
-                      <span>Apply Now (Hold Seat)</span>
+                      <span>আবেদন করুন (Apply Now)</span>
                     )}
                   </button>
                 </div>

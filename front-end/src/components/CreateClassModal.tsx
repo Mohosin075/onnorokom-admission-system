@@ -144,3 +144,4 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
     </div>
   );
 };
+
