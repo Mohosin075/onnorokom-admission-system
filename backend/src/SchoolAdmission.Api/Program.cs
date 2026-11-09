@@ -1,44 +1,92 @@
+using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+using SchoolAdmission.Api.Filters;
+using SchoolAdmission.Api.Middleware;
+using SchoolAdmission.Application;
+using SchoolAdmission.Infrastructure;
+using SchoolAdmission.Infrastructure.Persistence;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "School Admission System API",
+        Version = "v1",
+        Description = "First-Come, First-Served School Admission System API with high-concurrency seat reservation."
+    });
+
+    c.OperationFilter<StudentIdHeaderOperationFilter>();
+});
+
+// CORS: allow frontend to interact with backend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// Clean Architecture Layers DI
+builder.Services.AddApplication(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Ensure Database schema is created on startup
+using (var scope = app.Services.CreateScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        if (db.Database.IsNpgsql() || db.Database.IsRelational())
+        {
+            logger.LogInformation("Applying database migration or creating database schema...");
+            db.Database.EnsureCreated();
+            logger.LogInformation("Database ready.");
+        }
+        else
+        {
+            db.Database.EnsureCreated();
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred while initializing database schema.");
+    }
 }
 
-app.UseHttpsRedirection();
+// Global Exception Handler Middleware
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-var summaries = new[]
+// Enable Swagger in all environments for ease of testing by evaluators
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "School Admission System API v1");
+    c.RoutePrefix = "swagger";
+});
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.UseCors("AllowAll");
+
+app.MapControllers();
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+// For Integration and Concurrency tests accessibility
+public partial class Program { }
