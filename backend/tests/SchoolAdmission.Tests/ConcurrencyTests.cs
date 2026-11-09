@@ -2,12 +2,91 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Npgsql;
+using Microsoft.EntityFrameworkCore;
+using SchoolAdmission.Infrastructure.Persistence;
+using SchoolAdmission.Infrastructure.Persistence.Repositories;
 using SchoolAdmission.Application.DTOs;
 
 namespace SchoolAdmission.Tests;
 
 public class ConcurrencyTests(PostgresFixture database) : IClassFixture<PostgresFixture>
 {
+    [PostgresFact]
+    public async Task ConcurrentConfirmationsAcrossHosts_AllSucceedAndCountOneAdmission()
+    {
+        using var first = database.CreateFactory();
+        using var second = database.CreateFactory();
+        using var a = first.CreateClient();
+        using var b = second.CreateClient();
+        var classId = await CreateClass(a);
+        const string student = "20260000000000009";
+        using var created = await a.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", student));
+        var hold = (await created.Content.ReadFromJsonAsync<CreateHoldResponse>())!;
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requests = Enumerable.Range(0, 30).Select(async i =>
+        {
+            await start.Task;
+            using var request = Request(HttpMethod.Post, $"/holds/{hold.HoldId}/confirm", student);
+            return await (i % 2 == 0 ? a : b).SendAsync(request);
+        }).ToArray();
+        start.SetResult();
+        var results = await Task.WhenAll(requests);
+        foreach (var response in results)
+        {
+            using (response)
+            {
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+                (await response.Content.ReadFromJsonAsync<ConfirmHoldResponse>())!.Status.Should().Be("CONFIRMED");
+            }
+        }
+        var state = (await b.GetFromJsonAsync<ClassResponse>($"/classes/{classId}"))!;
+        state.ConfirmedSeats.Should().Be(1);
+        state.HeldSeats.Should().Be(0);
+        state.AvailableSeats.Should().Be(0);
+    }
+
+    [PostgresFact]
+    public async Task ExpiryUpdateWaitingOnConfirmation_RechecksStatusAfterTheCommit()
+    {
+        using var factory = database.CreateFactory();
+        using var client = factory.CreateClient();
+        var classId = await CreateClass(client);
+        using var created = await client.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20260000000000010"));
+        var hold = (await created.Content.ReadFromJsonAsync<CreateHoldResponse>())!;
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using var confirm = new NpgsqlCommand(
+            "UPDATE seat_holds SET status = 'CONFIRMED', confirmed_at_utc = now() WHERE id = @id", connection, transaction);
+        confirm.Parameters.AddWithValue("id", hold.HoldId);
+        await confirm.ExecuteNonQueryAsync();
+
+        var applicationName = $"expiry_race_{Guid.NewGuid():N}";
+        var workerConnection = new NpgsqlConnectionStringBuilder(database.ConnectionString) { ApplicationName = applicationName };
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(workerConnection.ConnectionString).Options;
+        await using var context = new ApplicationDbContext(options);
+        // A later expiry cutoff models the worker observing an eligible HELD snapshot
+        // while an earlier confirmation still owns the row lock.
+        var expiry = new HoldRepository(context).ExpireHoldsAsync(DateTime.UtcNow.AddDays(1));
+        await using var monitor = new NpgsqlConnection(database.ConnectionString);
+        await monitor.OpenAsync();
+        var blocked = false;
+        for (var attempt = 0; attempt < 50 && !blocked; attempt++)
+        {
+            await using var activity = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE application_name = @name AND wait_event_type = 'Lock')", monitor);
+            activity.Parameters.AddWithValue("name", applicationName);
+            blocked = (bool)(await activity.ExecuteScalarAsync())!;
+            if (!blocked) await Task.Delay(50);
+        }
+        // Release even on failure, so the background task cannot retain a blocked connection.
+        await transaction.CommitAsync();
+        await expiry;
+        blocked.Should().BeTrue("the conditional expiry update must overlap an uncommitted confirmation");
+        var final = (await client.GetFromJsonAsync<HoldStatusResponse>($"/holds/{hold.HoldId}"))!;
+        final.Status.Should().Be("CONFIRMED");
+    }
+
     private static async Task<string> CreateClass(HttpClient client, int seats = 1)
     {
         var response = await client.PostAsJsonAsync("/classes", new { name = "Concurrency Class", totalSeats = seats });

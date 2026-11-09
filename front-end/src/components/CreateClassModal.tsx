@@ -21,9 +21,11 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeHandler = useRef(onClose);
+  const mounted = useRef(false);
   useEffect(() => { closeHandler.current = onClose; }, [onClose]);
   useEffect(() => {
     if (!isOpen) return;
+    mounted.current = true;
     const previous = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
     dialog?.querySelector<HTMLInputElement>('input')?.focus();
@@ -38,6 +40,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
     };
     document.addEventListener('keydown', onKeyDown);
     return () => {
+      mounted.current = false;
       document.removeEventListener('keydown', onKeyDown);
       if (closeTimer.current) clearTimeout(closeTimer.current);
       previous?.focus();
@@ -68,6 +71,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
         name: name.trim(),
         totalSeats: seats,
       });
+      if (!mounted.current) return;
       setSuccess(`Class "${name.trim()}" created successfully!`);
       setName('');
       setTotalSeats(120);
@@ -77,9 +81,9 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
         onClose();
       }, 1200);
     } catch (err) {
-      setError(getErrorMessage(err));
+      if (mounted.current) setError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   };
 

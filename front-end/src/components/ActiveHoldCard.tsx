@@ -27,11 +27,14 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
   const requestVersion = useRef(0);
   const mounted = useRef(false);
+  const fetching = useRef(false);
   const errorHandler = useRef(onError);
   useEffect(() => { errorHandler.current = onError; }, [onError]);
 
   // Fetch hold details
   const fetchHold = useCallback(async () => {
+    if (fetching.current) return;
+    fetching.current = true;
     const version = ++requestVersion.current;
     try {
       const data = await api.getHoldById(holdId);
@@ -46,6 +49,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
         errorHandler.current(message);
       }
     } finally {
+      fetching.current = false;
       if (mounted.current && version === requestVersion.current) setLoading(false);
     }
   }, [holdId]);
@@ -79,10 +83,12 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
     if (!hold) return;
     setActionLoading(true);
     try {
-      await api.confirmHold(hold.holdId, studentId);
+      const confirmation = await api.confirmHold(hold.holdId, studentId);
       if (!mounted.current) return;
-      await fetchHold();
-      if (mounted.current) onHoldUpdated();
+      // Invalidate any read started before payment and use the mutation response.
+      requestVersion.current++;
+      setHold(current => current ? { ...current, status: confirmation.status } : current);
+      onHoldUpdated();
     } catch (err) {
       if (mounted.current) onError(getErrorMessage(err));
     } finally {

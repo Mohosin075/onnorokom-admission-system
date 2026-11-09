@@ -20,9 +20,12 @@ const MainDashboard: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [refreshApplicationsTrigger, setRefreshApplicationsTrigger] = useState<number>(0);
   const classRequest = useRef(0);
+  const classFetching = useRef(false);
 
   // Fetch classes list
   const fetchClasses = useCallback(async (isBackground = false) => {
+    if (classFetching.current) return;
+    classFetching.current = true;
     const request = ++classRequest.current;
     if (!isBackground) setLoadingClasses(true);
     try {
@@ -34,6 +37,7 @@ const MainDashboard: React.FC = () => {
     } catch (err) {
       if (request === classRequest.current) setConnectionError(getErrorMessage(err));
     } finally {
+      classFetching.current = false;
       if (request === classRequest.current) setLoadingClasses(false);
     }
   }, []);
@@ -155,14 +159,14 @@ const MainDashboard: React.FC = () => {
       </footer>
 
       {/* Create Class Admin Modal */}
-      <CreateClassModal
+      {isCreateModalOpen && <CreateClassModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onClassCreated={() => {
           fetchClasses(false);
           setRefreshApplicationsTrigger((prev) => prev + 1);
         }}
-      />
+      />}
     </div>
   );
 };

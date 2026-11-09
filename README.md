@@ -46,24 +46,27 @@ docker compose --profile test run --build --rm frontend-tests
 docker compose --profile test run --rm frontend-tests npm run lint -- --deny-warnings
 ```
 
-The backend suite has 6 service tests and 8 real PostgreSQL integration tests.
+The backend suite has 6 service tests and 10 real PostgreSQL integration tests.
 Integration tests create uniquely named temporary databases and drop only those
 databases afterward. The test PostgreSQL user needs permission to create databases.
-The frontend suite has 7 regression tests for identity switching, restoration,
-expired/new holds, stale responses, background connection failures and dialog focus.
+The frontend suite has 10 regression tests for identity switching, restoration,
+expired/new holds, stale responses, slow polling, payment success, background
+connection failures and dialog focus/lifecycle.
 
 The backend integration tests verify:
 
 - Two independent API hosts share five seats safely under 30 concurrent HTTP requests:
   exactly five return 201 and the other 25 return 409. No test-side reservation lock is used.
 - Concurrent duplicate applications and competing confirmation/cancellation requests.
+- Thirty concurrent confirmations remain idempotent across two hosts, and an expiry
+  update blocked by an uncommitted confirmation rechecks status after that commit.
 - A confirmation waiting on a database lock rechecks expiry before it can succeed.
 - Ownership, JSON contracts, idempotency, invalid input, automatic expiry, restart
   persistence and migration from the original schema.
 
 For local development with .NET 8 SDK and a PostgreSQL server, set
 `TEST_POSTGRES_CONNECTION` to an administrative connection string, then run
-`dotnet test backend/SchoolAdmission.sln`. Without that variable, the 8 database tests
+`dotnet test backend/SchoolAdmission.sln`. Without that variable, the 10 database tests
 are explicitly skipped, rather than simulated with InMemory.
 
 Frontend development requires Node 22.12+ or a compatible newer release:

@@ -1,10 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { StudentProvider } from '../context/StudentContext';
 import { useStudent } from '../context/student-store';
 import { api } from '../services/api';
-import type { HoldItem } from '../types';
+import type { ClassItem, HoldItem } from '../types';
+
+afterEach(() => vi.useRealTimers());
 
 vi.mock('../services/api', () => ({
   api: { getClasses: vi.fn(), getMyHolds: vi.fn(), getHoldById: vi.fn(),
@@ -75,6 +77,47 @@ describe('student identity and restoration', () => {
 });
 
 describe('application status and errors', () => {
+  it('shows a successful payment even if a subsequent status read would fail', async () => {
+    localStorage.setItem('school_admission_student_id', STUDENT_A);
+    localStorage.setItem('school_admission_active_hold_id', 'h_paid');
+    vi.mocked(api.getHoldById).mockResolvedValueOnce(hold('h_paid')).mockRejectedValue(new Error('Read unavailable'));
+    render(<App />);
+    const pay = await screen.findByRole('button', { name: /Pay Admission Fee/i });
+    fireEvent.click(pay);
+    expect(await screen.findByText('Admission Confirmed')).toBeInTheDocument();
+  });
+
+  it('displays slow class responses instead of invalidating them on every poll', async () => {
+    vi.useFakeTimers();
+    let resolveClasses!: (value: ClassItem[]) => void;
+    vi.mocked(api.getClasses).mockReturnValue(new Promise(resolve => { resolveClasses = resolve; }));
+    render(<App />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(6500); });
+    expect(api.getClasses).toHaveBeenCalledTimes(1);
+    await act(async () => resolveClasses([{
+      id: 'c_slow', name: 'Slow class', totalSeats: 1, heldSeats: 0, confirmedSeats: 0, availableSeats: 1,
+    }]));
+    expect(screen.getByText('Slow class')).toBeInTheDocument();
+  });
+
+  it('does not let a closed class submission overwrite a reopened form', async () => {
+    vi.useFakeTimers();
+    let resolveCreate!: (value: { id: string; name: string; totalSeats: number }) => void;
+    vi.mocked(api.createClass).mockReturnValue(new Promise(resolve => { resolveCreate = resolve; }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Create Class/i }));
+    fireEvent.change(screen.getByLabelText('Class & Shift Name'), { target: { value: 'Old class' } });
+    fireEvent.submit(screen.getByLabelText('Class & Shift Name').closest('form')!);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: /Create Class/i }));
+    fireEvent.change(screen.getByLabelText('Class & Shift Name'), { target: { value: 'New class' } });
+    await act(async () => resolveCreate({ id: 'c_old', name: 'Old class', totalSeats: 120 }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Class & Shift Name')).toHaveValue('New class');
+    expect(screen.getByRole('button', { name: 'Create Class' })).toBeEnabled();
+  });
+
   it('allows payment for a new hold after the previous application expired', async () => {
     localStorage.setItem('school_admission_student_id', STUDENT_A);
     localStorage.setItem('school_admission_active_hold_id', 'h_old');

@@ -31,11 +31,16 @@ CI and documentation. The user requested these corrections after reviewing the a
 - A real HTTP smoke run exposed Windows Event Log permission failures on warning
   logs. Runtime logging now explicitly uses the console, and primary-key row-lock
   queries no longer use an unnecessary unordered FirstOrDefault operation.
+- A second review found that polling could repeatedly invalidate slow responses,
+  and an old class submission could reset and close a newly opened form. Regression
+  tests reproduced both failures before fixes. Polls no longer overlap within a
+  view, and each dialog opening has isolated state and ignores results after closure.
+  Payment confirmation now updates status from its successful response directly.
 
 ## Validation and limits
 
-Validation used .NET 8, PostgreSQL 18 and Node 24: 14 backend tests (including 8
-database integration tests), 7 frontend regression tests, a production frontend build
+Validation used .NET 8, PostgreSQL 18 and Node 24: 16 backend tests (including 10
+database integration tests), 10 frontend regression tests, a production frontend build
 and lint with warnings treated as failures. A local HTTP smoke run used two separate
 API processes and verified concurrency, API contracts and persistence after restart.
 The EF model also matched its migration snapshot.

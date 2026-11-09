@@ -36,6 +36,9 @@
 - Classes poll every three seconds; active status and history poll every four seconds.
   A local one-second timer disables payment and refreshes history at expiry. The server
   remains authoritative. Requests time out after ten seconds and show readable errors.
+  A pending poll is allowed to finish before another poll for that view starts;
+  slow responses cannot be discarded forever by newer polling requests. Successful
+  confirmation updates the card from the mutation response immediately.
 - Student identity and the selected hold persist in localStorage. New browsers start
   with an empty identity. Changing identity clears the previous selection and ignores
   pending results belonging to the previous student. Valid IDs also restore active

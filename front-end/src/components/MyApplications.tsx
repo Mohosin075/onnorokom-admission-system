@@ -20,13 +20,16 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
   const [now, setNow] = useState(() => Date.now());
   const version = useRef(0);
   const mounted = useRef(false);
+  const fetching = useRef(false);
 
   const fetchMyHolds = useCallback(async () => {
+    if (fetching.current) return;
     const request = ++version.current;
     if (!isValidStudentId) {
       setHolds([]);
       return;
     }
+    fetching.current = true;
 
     setLoading(true);
     setError(null);
@@ -36,6 +39,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
     } catch (err) {
       if (mounted.current && request === version.current) setError(getErrorMessage(err));
     } finally {
+      fetching.current = false;
       if (mounted.current && request === version.current) setLoading(false);
     }
   }, [isValidStudentId, studentId]);
