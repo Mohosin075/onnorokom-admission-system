@@ -9,6 +9,12 @@ using SchoolAdmission.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Ensure backend runs on port 8080 by default per requirement
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls("http://+:8080");
+}
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

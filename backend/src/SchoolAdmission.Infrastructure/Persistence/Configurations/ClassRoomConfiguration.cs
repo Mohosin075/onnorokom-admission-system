@@ -12,17 +12,21 @@ public class ClassRoomConfiguration : IEntityTypeConfiguration<ClassRoom>
 
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Id)
+            .HasColumnName("id")
             .HasMaxLength(64)
             .IsRequired();
 
         builder.Property(c => c.Name)
+            .HasColumnName("name")
             .HasMaxLength(200)
             .IsRequired();
 
         builder.Property(c => c.TotalSeats)
+            .HasColumnName("total_seats")
             .IsRequired();
 
         builder.Property(c => c.CreatedAtUtc)
+            .HasColumnName("created_at_utc")
             .IsRequired();
 
         builder.HasMany(c => c.Holds)
@@ -31,4 +35,3 @@ public class ClassRoomConfiguration : IEntityTypeConfiguration<ClassRoom>
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
-
