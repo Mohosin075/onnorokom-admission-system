@@ -1,0 +1,258 @@
+# ONNOROKOM PROJUKTI LIMITED — TAKE-HOME ASSIGNMENT
+## School Admission System (Assistant Software Engineer Recruitment)
+
+---
+
+### 📌 এক নজরে তথ্য (Quick Info)
+- **পদ:** Assistant Software Engineer
+- **সময় সীমা (Deadline):** 11 November 2026 (11:59:59 PM)
+- **Tech Stack:** .NET 8+ · PostgreSQL · React 18+ · Docker
+- **জমা দেওয়ার মাধ্যম:** নিজের Public GitHub Repository
+
+---
+
+## ১. পরিস্থিতি ও প্রেক্ষাপট (Scenario)
+
+একটা বেসরকারি school নতুন শিক্ষাবর্ষে online-এ ভর্তি নেবে। 
+- **ভর্তির নীতি:** "আগে আবেদন করলে আগে পাবে" (First-Come, First-Served) ভিত্তিতে ভর্তি হবে, কোনো lottery নেই।
+- **আসন সীমাবদ্ধতা:** প্রতিটা class-এর প্রতিটা shift-এ seat সীমিত (যেমন: `"Class 6 – Morning Shift"`-এ ১২০টা)। ভর্তি খোলার সাথে সাথে হাজার হাজার অভিভাবক একসাথে আবেদন করেন।
+- **Seat Hold ও Confirmation:**
+  - আবেদন করলে seat কিছু সময়ের জন্য শিক্ষার্থীর নামে **hold** থাকে।
+  - নির্দিষ্ট সময়ের মধ্যে ভর্তি ফি জমা দিলে ভর্তি **confirm** হয়।
+  - সময়ের মধ্যে ফি জমা না হলে seat স্বয়ংক্রিয়ভাবে আবার অন্যদের জন্য উন্মুক্ত হয়ে যায়।
+- **কাজের পরিধি:** Backend এবং React UI দুটোই তৈরি করতে হবে। School admin এবং অভিভাবক সব কাজ UI থেকেই করবেন।
+- **অস্পষ্ট বিষয়:** Brief-এ সব বিষয় স্পষ্ট করে বলা নেই। সেখানে আপনার কাছে যেটা যুক্তিসঙ্গত মনে হয়, সেটা ধরে নিয়ে কাজ করুন এবং `ASSUMPTIONS.md`-এ কারণসহ উল্লেখ করুন।
+- **AI টুলস:** AI tool ব্যবহার করা যাবে।
+
+---
+
+## ২. প্রযুক্তিগত প্রয়োজনীয়তা (Technology Stack)
+
+### Backend
+- **Framework & DB:** C# (.NET 8 বা নতুন) এবং PostgreSQL।
+- **ORM:** আপনার পছন্দ মতো।
+- **Port:** Backend চলবে `http://localhost:8080`-এ।
+- **Config:** Database-এর connection string অবশ্যই **Environment Variable** দিয়ে পরিবর্তনযোগ্য হতে হবে।
+
+### Frontend
+- **Framework:** React 18 বা নতুন, JavaScript বা TypeScript। (Vite ব্যবহারের পরামর্শ দেওয়া হয়েছে)।
+- **UI Library:** আপনার পছন্দ মতো।
+- **Config:** Frontend থেকে backend-এর URL অবশ্যই **Environment Variable** দিয়ে কনফিগারযোগ্য হতে হবে।
+
+### Docker & Deployment
+- পুরো project Docker দিয়ে পরিচালিত হবে।
+- Repository-র root-এ একটি `docker-compose.yml` থাকতে হবে।
+- শুধু `docker compose up` দিলেই PostgreSQL, backend এবং frontend একসাথে চালু হতে হবে।
+- পরীক্ষকদের মেশিনে Docker ছাড়া আর কিছু install করা হবে না; এভাবেই অ্যাপ চালানো হবে।
+
+---
+
+## ৩. UI-তে যা থাকবে (User Interface Requirements)
+
+### মূল বৈশিষ্ট্য ও নিয়ম
+1. **শিফট হ্যান্ডলিং:** একটা class-এ একাধিক shift থাকতে পারে। এই system-এ প্রতিটা shift আলাদা একটা "class" হিসেবে তৈরি হবে, নিজের আলাদা seat সংখ্যা নিয়ে (যেমন: `"Class 6 – Morning Shift"` এবং `"Class 6 – Day Shift"` আলাদা class)।
+2. **শিক্ষার্থীর পরিচয় (No Login):** কোনো Login ব্যবস্থা থাকবে না। Page-এর উপরে একটি ইনপুট বক্সে শিক্ষার্থীর **১৭ অঙ্কের জন্ম নিবন্ধন নম্বর** লেখা যাবে। UI এটাকেই শিক্ষার্থীর পরিচয় হিসেবে বিবেচনা করবে।
+3. **পেমেন্ট সিমুলেশন:** "ভর্তি ফি দিন" চাপলে ধরে নেবেন payment সফল হয়েছে। আসল কোনো payment gateway যুক্ত করা লাগবে না।
+4. **ডিজাইন প্রত্যাশা:** UI অতিরিক্ত সুন্দর বা চাকচিক্যময় হওয়া জরুরি নয়; জরুরি হলো ঠিকঠাক কাজ করা এবং ব্যবহার সহজ ও মসৃণ হওয়া।
+
+### স্ক্রিন ও ফিচার তালিকা
+
+| Screen / View | কাজ / বিবরণ |
+| :--- | :--- |
+| **Class তৈরি** (Admin) | Class-এর নাম এবং মোট seat সংখ্যা দিয়ে নতুন class তৈরি করার ফর্ম। |
+| **Class তালিকা** | প্রতিটা class-এর মোট (total), hold-এ থাকা, নিশ্চিত (confirmed) এবং খালি (available) seat-এর হিসাব; সাথে "আবেদন করুন" button। |
+| **আবেদন অবস্থা** | আবেদনের অবস্থা, মেয়াদ শেষ হতে কত সময় বাকি (countdown timer), "ভর্তি ফি দিন" এবং "বাতিল" button। |
+| **আমার আবেদন** | উক্ত শিক্ষার্থীর করা সব আবেদনের তালিকা এবং প্রতিটির বর্তমান অবস্থা। |
+
+---
+
+## ৪. API স্পেসিফিকেশন (API Contracts)
+
+> ⚠️ **কঠোর নির্দেশ:** UI এই API-গুলোই call করবে। Contract হুবহু মানতে হবে, কারণ UI-এর পাশাপাশি সরাসরি API-এর উপর automated test চালানো হবে। Response-এ অতিরিক্ত field যোগ করতে পারেন, কিন্তু নিচের কোনো field বাদ দেওয়া বা নাম পরিবর্তন করা যাবে না।
+
+- **Base URL:** `http://localhost:8080`
+- **Format:** সব request এবং response অবশ্যই **JSON** হতে হবে।
+- **Authentication/Identity Header:** শিক্ষার্থীর পরিচয় পাঠাতে হবে `X-Student-Id` header-এর মাধ্যমে (১৭ অঙ্কের জন্ম নিবন্ধন নম্বর)।
+- **Class / Shift:** API-তেও প্রতিটা shift একটি আলাদা "class"।
+- **IDs:** উদাহরণে দেখানো ID (`c_123`, `h_789`) কেবল নমুনা; ID-র ফরম্যাট (GUID, auto-increment, ইত্যাদি) আপনার পছন্দ মতো হতে পারে।
+
+### API সারসংক্ষেপ
+
+| # | Method | Endpoint Path | Header | বিবরণ | Success Code |
+| :-: | :--- | :--- | :--- | :--- | :-: |
+| 1 | `POST` | `/classes` | — | নতুন class তৈরি | 201 Created |
+| 2 | `GET` | `/classes` | — | সব class-এর তালিকা (seat হিসাব সহ) | 200 OK |
+| 3 | `GET` | `/classes/{classId}` | — | একটি নির্দিষ্ট class-এর seat-এর অবস্থা | 200 OK |
+| 4 | `POST` | `/classes/{classId}/holds` | `X-Student-Id` | আসন hold বা আবেদনের জন্য অনুরোধ | 201 Created |
+| 5 | `GET` | `/holds/{holdId}` | — | আবেদনের বর্তমান অবস্থা যাচাই | 200 OK |
+| 6 | `POST` | `/holds/{holdId}/confirm` | `X-Student-Id` | ভর্তি ফি জমা ও ভর্তি নিশ্চিতকরণ | 200 OK |
+| 7 | `DELETE`| `/holds/{holdId}` | `X-Student-Id` | আবেদন বাতিল করা | 204 No Content |
+| 8 | `GET` | `/me/holds` | `X-Student-Id` | উক্ত শিক্ষার্থীর সব আবেদনের তালিকা | 200 OK |
+
+---
+
+### বিস্তারিত API রিকোয়েস্ট ও রেসপন্স ফরম্যাট
+
+#### ১. নতুন Class তৈরি
+- **Method:** `POST /classes`
+- **Request Body:**
+  ```json
+  {
+    "name": "Class 6 - Morning Shift",
+    "totalSeats": 120
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "id": "c_123",
+    "name": "Class 6 - Morning Shift",
+    "totalSeats": 120
+  }
+  ```
+
+#### ২. সব Class-এর তালিকা
+- **Method:** `GET /classes`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "c_123",
+      "name": "Class 6 - Morning Shift",
+      "totalSeats": 120,
+      "heldSeats": 15,
+      "confirmedSeats": 80,
+      "availableSeats": 25
+    }
+  ]
+  ```
+
+#### ৩. নির্দিষ্ট Class-এর অবস্থা
+- **Method:** `GET /classes/{classId}`
+- **Response (200 OK):**
+  ```json
+  {
+    "id": "c_123",
+    "name": "Class 6 - Morning Shift",
+    "totalSeats": 120,
+    "heldSeats": 15,
+    "confirmedSeats": 80,
+    "availableSeats": 25
+  }
+  ```
+
+#### ৪. আবেদন (Seat Hold)
+- **Method:** `POST /classes/{classId}/holds`
+- **Header:** `X-Student-Id: <17-digit-id>`
+- **Response (201 Created):**
+  ```json
+  {
+    "holdId": "h_789",
+    "classId": "c_123",
+    "studentId": "20152691234567890",
+    "status": "HELD",
+    "expiresAt": "2026-11-01T04:10:00Z"
+  }
+  ```
+- **ব্যর্থতা:** যদি সিট খালি না থাকে, তবে **`409 Conflict`** রেসপন্স কোড ফেরত দিতে হবে।
+
+#### ৫. আবেদনের বর্তমান অবস্থা
+- **Method:** `GET /holds/{holdId}`
+- **Response (200 OK):**
+  ```json
+  {
+    "holdId": "h_789",
+    "classId": "c_123",
+    "status": "HELD",
+    "expiresAt": "2026-11-01T04:10:00Z"
+  }
+  ```
+- **সম্ভাব্য স্ট্যাটাস মান:** `status`-এর মান অবশ্যই এর যেকোনো একটি হবে:
+  - `HELD`
+  - `CONFIRMED`
+  - `EXPIRED`
+  - `CANCELLED`
+
+#### ৬. ভর্তি ফি জমা ও নিশ্চিতকরণ
+- **Method:** `POST /holds/{holdId}/confirm`
+- **Header:** `X-Student-Id: <17-digit-id>`
+- **Response (200 OK):**
+  ```json
+  {
+    "holdId": "h_789",
+    "status": "CONFIRMED"
+  }
+  ```
+
+#### ৭. আবেদন বাতিল
+- **Method:** `DELETE /holds/{holdId}`
+- **Header:** `X-Student-Id: <17-digit-id>`
+- **Response:** সফল হলে **`204 No Content`**
+
+#### ৮. শিক্ষার্থীর সব আবেদন
+- **Method:** `GET /me/holds`
+- **Header:** `X-Student-Id: <17-digit-id>`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "holdId": "h_789",
+      "classId": "c_123",
+      "className": "Class 6 - Morning Shift",
+      "status": "HELD",
+      "expiresAt": "2026-11-01T04:10:00Z"
+    }
+  ]
+  ```
+
+---
+
+## ৫. নিয়মাবলি (বাধ্যতামূলক - Mandatory Rules)
+
+### ⚙️ Backend Rules
+1. **আসন সীমা ও কনকারেন্সি (No Overselling):** কোনো অবস্থাতেই একটা class-এ `heldSeats + confirmedSeats` সংখ্যা `totalSeats`-এর বেশি হবে না, যত রিকোয়েস্টই একসাথে আসুক।
+2. **স্বয়ংক্রিয় আসন বাতিল (Auto-Expiry):** আবেদনের মেয়াদ environment variable `HOLD_DURATION_SECONDS` দিয়ে নিয়ন্ত্রিত হবে (default `600` সেকেন্ড বা ১০ মিনিট)। মেয়াদ শেষ হলে seat নিজে থেকেই মুক্ত হয়ে যাবে; এর জন্য কাউকে কোনো API call করতে হবে না।
+3. **একক সক্রিয় আবেদন সীমা:** একজন শিক্ষার্থী একই সময়ে একটি নির্দিষ্ট class-এ একটার বেশি active আবেদন বা নিশ্চিত ভর্তি রাখতে পারবে না।
+4. **ভ্যালিড কনফার্মেশন:** শুধু নিজের এবং মেয়াদ না পেরোনো `HELD` আবেদনই confirm করা যাবে।
+5. **আইডেমপোটেন্ট কনফার্মেশন (Idempotency):** একই আবেদনে confirm রিকোয়েস্ট একাধিকবার এলেও `confirmedSeats` একবারই বৃদ্ধি পাবে।
+6. **ডাটা সংরক্ষণ (Persistence):** App রিস্টার্ট হলেও কোনো ডাটা হারাবে না (`docker compose down` করে আবার `docker compose up` দিলেও)।
+7. **সঠিক এরর হ্যান্ডলিং:** ভুল ইনপুট বা নিয়মের ব্যত্যয় ঘটলে উপযুক্ত `4xx` স্ট্যাটাস কোড দিতে হবে, কখনোই `500 Internal Server Error` দেওয়া যাবে না।
+
+### 🖥️ UI Rules
+1. **পূর্ণাঙ্গ কার্যকারিতা:** সব কাজ UI থেকেই করা যাবে। কোথাও Postman বা সরাসরি Database অ্যাক্সেস প্রয়োজন হবে না।
+2. **রিয়েলটাইম মেয়াদ উত্তীর্ণ প্রদর্শন:** মেয়াদ শেষ হলে page reload ছাড়াই আবেদনটি `EXPIRED` স্ট্যাটাস দেখাবে এবং "ভর্তি ফি দিন" বাটন অকার্যকর (disabled) হয়ে যাবে।
+3. **স্বয়ংক্রিয় আপডেট:** Class-এর seat সংখ্যা page reload ছাড়াই কয়েক সেকেন্ড পরপর স্বয়ংক্রিয়ভাবে হালনাগাদ হবে।
+4. **স্টেট সংরক্ষণ:** Page refresh করলে বা browser বন্ধ করে আবার খুললেও শিক্ষার্থী নিজের চলমান আবেদন দেখতে পাবে।
+5. **ইউজার ফ্রেন্ডলি এরর মেসেজ:** যেকোনো সমস্যা (seat শেষ, মেয়াদ শেষ, ভুল input, server বন্ধ) ব্যবহারকারীর সহজে বোঝার মতো ভাষায় তুলে ধরতে হবে। কোনো ফাঁকা পৃষ্ঠা (Blank page) বা শুধু কনসোলে এরর দেখানো চলবে না।
+
+---
+
+## ৬. বোনাস সুযোগ (Bonus - ঐচ্ছিক)
+
+- **মাল্টি-প্রসেস কনকারেন্সি:** একই database ব্যবহার করে backend-এর দুইটা instance/process আলাদা port-এ একসাথে চললেও যেন নিয়ম ১ (No Overselling) পুরোপুরি অক্ষুণ্ণ থাকে। এটা কীভাবে নিশ্চিত করলেন, তা `ASSUMPTIONS.md`-এ ব্যাখ্যা করতে হবে।
+- **Frontend টেস্ট:** Frontend-এর জন্য Automated test যুক্ত করা।
+
+---
+
+## ৭. যা যা জমা দিতে হবে (Deliverables Checklist)
+
+- [ ] **Git Repository:** একটি পরিচ্ছন্ন commit history সহ Git repo, যার ভেতর `backend/` এবং `front-end/` ফোল্ডার থাকবে। (একবারে বড় commit না দিয়ে কাজের সাথে সাথে ধাপে ধাপে commit করুন)।
+- [ ] **Docker Configuration:** Backend ও Frontend উভয়ের `Dockerfile` এবং রুট ডিরেক্টরিতে `docker-compose.yml`।
+- [ ] **`README.md`:** 
+  - Docker দিয়ে অ্যাপ্লিকেশন চালানোর সুনির্দিষ্ট ধাপ।
+  - Frontend কোন URL-এ ওপেন হবে।
+  - Test suite রান করার নিয়ম।
+- [ ] **`ASSUMPTIONS.md` (সংক্ষিপ্ত):** স্পেসিফিকেশনে যা স্পষ্ট ছিল না, সেখানে কী কী ধরে নিয়েছেন এবং কেন ধরেছেন তার ব্যাখ্যা।
+- [ ] **Backend Automated Tests:** Backend-এ অন্তত ৩টি automated test, যার মধ্যে অবশ্যই ১টি **Concurrency Test** থাকতে হবে। (Concurrency test-এ প্রমাণ করতে হবে যে একসাথে একাধিক রিকোয়েস্ট পাঠালেও অতিরিক্ত আসন বরাদ্দ হয় না)।
+- [ ] **`AI_USAGE.md` (সংক্ষিপ্ত):** কোন AI tool কোন অংশে ব্যবহার করেছেন, AI কোথায় ভুল আউটপুট দিয়েছিল এবং আপনি কীভাবে তা সংশোধন করেছেন।
+
+---
+
+## ৮. সাবমিশন সংক্রান্ত নির্দেশনা
+
+- নিজের GitHub অ্যাকাউন্টে একটি **Public Repository** তৈরি করে সম্পূর্ণ কাজ সেখানে পুশ করুন।
+- নির্দিষ্ট ডেডলাইনের পূর্বে নিচের লিংকের মাধ্যমে সাবমিট করুন:
+  - 🔗 **Submission Link:** https://q-rp.com/c/4CXx
+- শেষ সময়ে রিপোজিটরি যে অবস্থায় থাকবে, কেবল সেটাই মূল্যায়ন করা হবে। সময় পার হওয়ার পর কোনো নতুন commit বা push গ্রহণযোগ্য হবে না।
+- ⚠️ এই অ্যাসাইনমেন্টের মূল PDF কাউকে শেয়ার বা পাবলিক করবেন না।
+- যেকোনো সমস্যায় যোগাযোগের ঠিকানা: `hrd@onnorokom.com`
