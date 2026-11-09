@@ -22,7 +22,7 @@ public class UnitOfWork : IUnitOfWork
     {
         if (_currentTransaction != null)
         {
-            return _currentTransaction;
+            throw new InvalidOperationException("A transaction is already active in this unit of work.");
         }
 
         // EF Core InMemory provider does not support physical transactions
@@ -32,7 +32,7 @@ public class UnitOfWork : IUnitOfWork
         }
 
         _currentTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-        return _currentTransaction;
+        return new TransactionScope(this);
     }
 
     public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
@@ -40,15 +40,7 @@ public class UnitOfWork : IUnitOfWork
         if (_currentTransaction == null)
             return;
 
-        try
-        {
-            await _currentTransaction.CommitAsync(cancellationToken);
-        }
-        finally
-        {
-            await _currentTransaction.DisposeAsync();
-            _currentTransaction = null;
-        }
+        await _currentTransaction.CommitAsync(cancellationToken);
     }
 
     public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
@@ -70,5 +62,16 @@ public class UnitOfWork : IUnitOfWork
     private sealed class NullAsyncDisposable : IAsyncDisposable
     {
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class TransactionScope(UnitOfWork owner) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            if (owner._currentTransaction is not { } transaction) return;
+            owner._currentTransaction = null;
+            // Disposing an uncommitted transaction rolls it back, including error paths.
+            await transaction.DisposeAsync();
+        }
     }
 }

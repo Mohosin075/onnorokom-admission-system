@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { StudentProvider, useStudent } from './context/StudentContext';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { StudentProvider } from './context/StudentContext';
+import { useStudent } from './context/student-store';
 import { Navbar } from './components/Navbar';
 import { ClassList } from './components/ClassList';
 import { ActiveHoldCard } from './components/ActiveHoldCard';
@@ -14,47 +15,55 @@ const MainDashboard: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loadingClasses, setLoadingClasses] = useState<boolean>(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [refreshApplicationsTrigger, setRefreshApplicationsTrigger] = useState<number>(0);
+  const classRequest = useRef(0);
 
   // Fetch classes list
   const fetchClasses = useCallback(async (isBackground = false) => {
+    const request = ++classRequest.current;
     if (!isBackground) setLoadingClasses(true);
     try {
       const data = await api.getClasses();
+      if (request !== classRequest.current) return;
       setClasses(data);
+      setConnectionError(null);
+      setLastUpdated(new Date().toLocaleTimeString());
     } catch (err) {
-      if (!isBackground) {
-        setGlobalError(getErrorMessage(err));
-      }
+      if (request === classRequest.current) setConnectionError(getErrorMessage(err));
     } finally {
-      if (!isBackground) setLoadingClasses(false);
+      if (request === classRequest.current) setLoadingClasses(false);
     }
   }, []);
 
   // Auto-restore active hold from server if valid student ID is set but activeHoldId is empty
   useEffect(() => {
+    let disposed = false;
     if (!activeHoldId && studentId && /^\d{17}$/.test(studentId)) {
       api.getMyHolds(studentId).then((myHolds) => {
+        if (disposed) return;
         const currentActive = myHolds.find(
           (h) => h.status === 'HELD' && new Date(h.expiresAt).getTime() > Date.now()
         );
         if (currentActive) {
           setActiveHoldId(currentActive.holdId);
         }
-      }).catch(() => {
-        // Silently ignore on background recovery
+      }).catch((error: unknown) => {
+        if (!disposed) setGlobalError(getErrorMessage(error));
       });
     }
+    return () => { disposed = true; };
   }, [studentId, activeHoldId, setActiveHoldId]);
 
   // Initial fetch and auto-refresh polling every 3 seconds (Mandatory UI Rule 3)
   useEffect(() => {
-    fetchClasses(false);
+    const initial = setTimeout(() => { void fetchClasses(false); }, 0);
     const interval = setInterval(() => {
       fetchClasses(true);
     }, 3000);
-    return () => clearInterval(interval);
+    return () => { clearTimeout(initial); clearInterval(interval); };
   }, [fetchClasses]);
 
   const handleHoldCreated = (holdId: string) => {
@@ -98,10 +107,15 @@ const MainDashboard: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 flex-1">
+        {connectionError && <div role="alert" className="p-4 rounded-xl bg-amber-50 text-amber-900 border border-amber-200">
+          {connectionError} Seat counts may be out of date.
+          {lastUpdated && <span> Last updated: {lastUpdated}.</span>}
+        </div>}
         {/* Active Application / Countdown Screen */}
         {activeHoldId && (
           <section aria-label="Active Application Status">
             <ActiveHoldCard
+              key={`${studentId}:${activeHoldId}`}
               holdId={activeHoldId}
               classes={classes}
               onHoldUpdated={handleHoldUpdated}
@@ -114,6 +128,7 @@ const MainDashboard: React.FC = () => {
         {/* Classes Table / Seat Status Screen */}
         <section aria-label="Class and Shifts List">
           <ClassList
+            key={studentId}
             classes={classes}
             loading={loadingClasses}
             onHoldCreated={handleHoldCreated}
@@ -124,6 +139,7 @@ const MainDashboard: React.FC = () => {
         {/* My Applications History Screen */}
         <section aria-label="My Applications History">
           <MyApplications
+            key={studentId}
             onSelectHold={(holdId) => {
               setActiveHoldId(holdId);
               window.scrollTo({ top: 0, behavior: 'smooth' });

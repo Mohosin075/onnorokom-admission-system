@@ -26,7 +26,7 @@ public class SeatHold
         if (string.IsNullOrWhiteSpace(classId))
             throw new ValidationException("Class id cannot be empty.");
 
-        if (string.IsNullOrWhiteSpace(studentId) || studentId.Trim().Length != 17 || !studentId.All(char.IsDigit))
+        if (string.IsNullOrWhiteSpace(studentId) || studentId.Trim().Length != 17 || !studentId.Trim().All(c => c >= '0' && c <= '9'))
             throw new ValidationException("Student id must be exactly a 17-digit birth registration number.");
 
         if (durationSeconds <= 0)

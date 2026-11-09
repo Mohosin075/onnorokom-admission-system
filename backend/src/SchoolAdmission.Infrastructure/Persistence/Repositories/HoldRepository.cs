@@ -17,7 +17,34 @@ public class HoldRepository : IHoldRepository
     public async Task<SeatHold?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         return await _context.Holds
+            .AsNoTracking()
             .FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
+    }
+
+    public async Task<SeatHold?> GetByIdForUpdateAsync(string id, CancellationToken cancellationToken = default)
+    {
+        if (_context.Database.IsNpgsql())
+        {
+            var locked = await _context.Holds
+                .FromSqlInterpolated($"SELECT * FROM seat_holds WHERE id = {id} FOR UPDATE")
+                .ToListAsync(cancellationToken);
+            return locked.SingleOrDefault();
+        }
+
+        return await _context.Holds.FirstOrDefaultAsync(h => h.Id == id, cancellationToken);
+    }
+
+    public async Task<int> ExpireHoldsAsync(DateTime now, CancellationToken cancellationToken = default)
+    {
+        var expired = _context.Holds.Where(h => h.Status == HoldStatus.HELD && h.ExpiresAtUtc <= now);
+        if (_context.Database.IsRelational())
+            return await expired.ExecuteUpdateAsync(
+                setters => setters.SetProperty(h => h.Status, HoldStatus.EXPIRED), cancellationToken);
+
+        var holds = await expired.ToListAsync(cancellationToken);
+        foreach (var hold in holds) hold.CheckAndExpire(now);
+        await _context.SaveChangesAsync(cancellationToken);
+        return holds.Count;
     }
 
     public async Task<SeatHold?> GetByIdWithClassAsync(string id, CancellationToken cancellationToken = default)
@@ -30,6 +57,7 @@ public class HoldRepository : IHoldRepository
     public async Task<List<SeatHold>> GetByStudentIdAsync(string studentId, CancellationToken cancellationToken = default)
     {
         return await _context.Holds
+            .AsNoTracking()
             .Include(h => h.ClassRoom)
             .Where(h => h.StudentId == studentId)
             .OrderByDescending(h => h.CreatedAtUtc)

@@ -31,6 +31,7 @@ public class HoldService : IHoldService
     public async Task<CreateHoldResponse> CreateHoldAsync(string classId, string studentId, CancellationToken cancellationToken = default)
     {
         ValidateStudentId(studentId);
+        studentId = studentId.Trim();
 
         await using var tx = await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
@@ -53,7 +54,7 @@ public class HoldService : IHoldService
         if (heldSeats + confirmedSeats >= cls.TotalSeats)
             throw new ConflictException("No available seats left in this class.");
 
-        var holdId = $"h_{Guid.NewGuid().ToString("N")[..8]}";
+        var holdId = $"h_{Guid.NewGuid():N}";
         var hold = new SeatHold(holdId, classId, studentId, _options.HoldDurationSeconds);
 
         await _holdRepository.AddAsync(hold, cancellationToken);
@@ -76,15 +77,11 @@ public class HoldService : IHoldService
             throw new EntityNotFoundException("Hold", holdId);
 
         var now = DateTime.UtcNow;
-        if (hold.CheckAndExpire(now))
-        {
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
 
         return new HoldStatusResponse(
             hold.Id,
             hold.ClassId,
-            hold.Status.ToString(),
+            EffectiveStatus(hold, now),
             hold.ExpiresAtUtc
         );
     }
@@ -95,9 +92,7 @@ public class HoldService : IHoldService
 
         await using var tx = await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
-        var hold = await _holdRepository.GetByIdAsync(holdId, cancellationToken);
-        if (hold == null)
-            throw new EntityNotFoundException("Hold", holdId);
+        var hold = await LockHoldAsync(holdId, cancellationToken);
 
         var now = DateTime.UtcNow;
         hold.Confirm(studentId, now);
@@ -114,9 +109,7 @@ public class HoldService : IHoldService
 
         await using var tx = await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
-        var hold = await _holdRepository.GetByIdAsync(holdId, cancellationToken);
-        if (hold == null)
-            throw new EntityNotFoundException("Hold", holdId);
+        var hold = await LockHoldAsync(holdId, cancellationToken);
 
         var now = DateTime.UtcNow;
         hold.Cancel(studentId, now);
@@ -128,39 +121,44 @@ public class HoldService : IHoldService
     public async Task<List<StudentHoldResponse>> GetStudentHoldsAsync(string studentId, CancellationToken cancellationToken = default)
     {
         ValidateStudentId(studentId);
+        studentId = studentId.Trim();
 
         var holds = await _holdRepository.GetByStudentIdAsync(studentId, cancellationToken);
         var now = DateTime.UtcNow;
-        var hasChanges = false;
 
         var result = new List<StudentHoldResponse>(holds.Count);
         foreach (var hold in holds)
         {
-            if (hold.CheckAndExpire(now))
-            {
-                hasChanges = true;
-            }
 
             result.Add(new StudentHoldResponse(
                 hold.Id,
                 hold.ClassId,
                 hold.ClassRoom?.Name ?? hold.ClassId,
-                hold.Status.ToString(),
+                EffectiveStatus(hold, now),
                 hold.ExpiresAtUtc
             ));
-        }
-
-        if (hasChanges)
-        {
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         return result;
     }
 
+    // Capacity-changing operations lock class first, then hold, before checking time.
+    private async Task<SeatHold> LockHoldAsync(string holdId, CancellationToken cancellationToken)
+    {
+        var snapshot = await _holdRepository.GetByIdAsync(holdId, cancellationToken)
+            ?? throw new EntityNotFoundException("Hold", holdId);
+        await _classRepository.GetByIdForUpdateAsync(snapshot.ClassId, cancellationToken);
+        return await _holdRepository.GetByIdForUpdateAsync(holdId, cancellationToken)
+            ?? throw new EntityNotFoundException("Hold", holdId);
+    }
+
+    private static string EffectiveStatus(SeatHold hold, DateTime now) =>
+        hold.Status == HoldStatus.HELD && hold.ExpiresAtUtc <= now
+            ? nameof(HoldStatus.EXPIRED) : hold.Status.ToString();
+
     private static void ValidateStudentId(string studentId)
     {
-        if (string.IsNullOrWhiteSpace(studentId) || studentId.Trim().Length != 17 || !studentId.Trim().All(char.IsDigit))
+        if (string.IsNullOrWhiteSpace(studentId) || studentId.Trim().Length != 17 || !studentId.Trim().All(c => c >= '0' && c <= '9'))
             throw new ValidationException("Student id must be exactly a 17-digit birth registration number.");
     }
 }

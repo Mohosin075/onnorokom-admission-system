@@ -8,9 +8,12 @@ using SchoolAdmission.Infrastructure;
 using SchoolAdmission.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+// Console logging works in containers and unprivileged Windows sessions.
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
 
 // Ensure backend runs on port 8080 by default per requirement
-if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+if (string.IsNullOrEmpty(builder.Configuration["urls"]))
 {
     builder.WebHost.UseUrls("http://+:8080");
 }
@@ -60,10 +63,20 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        if (db.Database.IsNpgsql() || db.Database.IsRelational())
+        if (db.Database.IsNpgsql())
         {
-            logger.LogInformation("Applying database migration or creating database schema...");
-            db.Database.EnsureCreated();
+            // Serialize schema initialization when several API instances start together.
+            db.Database.OpenConnection();
+            try
+            {
+                db.Database.ExecuteSqlRaw("SELECT pg_advisory_lock(719320841)");
+                db.Database.Migrate();
+            }
+            finally
+            {
+                db.Database.ExecuteSqlRaw("SELECT pg_advisory_unlock(719320841)");
+                db.Database.CloseConnection();
+            }
             logger.LogInformation("Database ready.");
         }
         else
@@ -74,6 +87,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         logger.LogError(ex, "An error occurred while initializing database schema.");
+        throw;
     }
 }
 
@@ -91,6 +105,10 @@ app.UseSwaggerUI(c =>
 app.UseCors("AllowAll");
 
 app.MapControllers();
+app.MapGet("/health", async (ApplicationDbContext db, CancellationToken cancellationToken) =>
+    await db.Database.CanConnectAsync(cancellationToken)
+        ? Results.Ok(new { status = "healthy" })
+        : Results.Json(new { status = "unhealthy" }, statusCode: 503));
 
 app.Run();
 

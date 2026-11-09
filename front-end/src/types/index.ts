@@ -14,6 +14,10 @@ export interface CreateClassPayload {
   totalSeats: number;
 }
 
+export interface CreateClassResponse extends CreateClassPayload {
+  id: string;
+}
+
 export interface HoldItem {
   holdId: string;
   classId: string;

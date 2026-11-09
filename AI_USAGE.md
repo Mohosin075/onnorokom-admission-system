@@ -1,33 +1,47 @@
-# AI USAGE REPORT
+# AI usage
 
-This document transparently outlines the usage of AI tools during the development of the School Admission System assignment, in accordance with Section 7 of the guidelines.
+The earlier implementation documented use of Antigravity AI for scaffolding,
+architecture, database logic, frontend components and initial service tests. This
+review did not independently verify that tool's recorded model name or any previous
+claims of human corrections.
 
----
+OpenAI Codex was used for the subsequent requirement audit and fixes: transaction
+handling, reservation/confirmation/cancellation synchronization, conditional expiry,
+validation, migrations, frontend identity and request handling, tests, Docker setup,
+CI and documentation. The user requested these corrections after reviewing the audit.
 
-## 1. AI Tools Used & Scope of Work
+## Errors found and corrected
 
-| AI Tool | Area of Application | Description |
-| :--- | :--- | :--- |
-| **Antigravity AI (Gemini 3.8 Flash)** | Architecture & Scaffolding | Designed Clean Architecture solution structure, boilerplate scaffolding for .NET 8 projects and React 19 / Vite frontend. |
-| **Antigravity AI (Gemini 3.8 Flash)** | Concurrency & Database Logic | Formulated PostgreSQL Row-Level Locking (`SELECT ... FOR UPDATE`) strategy and EF Core transaction handling. |
-| **Antigravity AI (Gemini 3.8 Flash)** | Automated Test Suite | Implemented high-concurrency simulation test (30 concurrent workers competing for 5 seats) and unit test scenarios. |
+- The original InMemory concurrency test serialized calls with its own semaphore.
+  It could pass without testing production locking. It was replaced with concurrent
+  HTTP requests against real PostgreSQL, including two independent API hosts.
+- PostgreSQL automatic retries were enabled alongside direct explicit transactions.
+  The incompatible per-command retry configuration was removed.
+- Confirmation, cancellation and expiry could overwrite one another's status.
+  Class/hold locks and conditional expiry updates now coordinate these changes;
+  reads compute effective expiry without saving stale entities.
+- The original UI retained a previous student's selected application and a sticky
+  local expiry flag. Identity changes now clear selection; application components
+  are isolated by identity and hold, and stale asynchronous results are ignored.
+- During these fixes, integration-test configuration initially used the application
+  connection string instead of its disposable database. The test factory now
+  explicitly replaces DbContext options. No existing application database was changed.
+- The first frontend test dependency installation selected a jsdom version requiring
+  a newer Node release. It was replaced with jsdom 26.1.0 and the regression suite ran.
+- A real HTTP smoke run exposed Windows Event Log permission failures on warning
+  logs. Runtime logging now explicitly uses the console, and primary-key row-lock
+  queries no longer use an unnecessary unordered FirstOrDefault operation.
 
----
+## Validation and limits
 
-## 2. Identified AI Mistakes & Human Corrections
+Validation used .NET 8, PostgreSQL 18 and Node 24: 14 backend tests (including 8
+database integration tests), 7 frontend regression tests, a production frontend build
+and lint with warnings treated as failures. A local HTTP smoke run used two separate
+API processes and verified concurrency, API contracts and persistence after restart.
+The EF model also matched its migration snapshot.
 
-### Issue 1: UI Rule 5.2 Expired Button State
-- **AI Initial Output:** When an application hold expired, the AI initially hid the "Pay Admission Fee" button completely and replaced it with a generic "Dismiss" button.
-- **Problem:** Requirement 5.2 explicitly specifies: *"মেয়াদ শেষ হলে page reload ছাড়াই আবেদনটি EXPIRED স্ট্যাটাস দেখাবে এবং 'ভর্তি ফি দিন' বাটন অকার্যকর (disabled) হয়ে যাবে।"*
-- **Correction:** The frontend code was corrected in `ActiveHoldCard.tsx` to keep the button rendered in the DOM with the explicit HTML attribute `disabled={true}`, styled with disabled CSS classes, and displaying `ভর্তি ফি দিন (মেয়াদ উত্তীর্ণ / Expired)`.
-
-### Issue 2: EF Core In-Memory Transaction Warning in Tests
-- **AI Initial Output:** The AI implemented physical transactions (`BeginTransactionAsync()`) across all repositories. When running tests under EF Core In-Memory database, EF Core threw an `InvalidOperationException` because In-Memory store does not support transactions by default.
-- **Problem:** Concurrency and hold unit tests failed due to unsupported in-memory transactions.
-- **Correction:** Updated `UnitOfWork.cs` to detect the in-memory provider (`Microsoft.EntityFrameworkCore.InMemory`) and return a `NullAsyncDisposable`, while preserving real transactions and row locks when connected to relational PostgreSQL. This enabled all 7 automated tests to pass with 100% green status.
-
-### Issue 3: TypeScript `verbatimModuleSyntax` Type Imports
-- **AI Initial Output:** Imported TypeScript interfaces directly using standard `import { ClassItem } from './types'`.
-- **Problem:** Vite/TS configured with `verbatimModuleSyntax: true` failed the build with error `TS1484: 'ClassItem' is a type and must be imported using a type-only import`.
-- **Correction:** Refactored all type imports to use `import type { ... }`, resolving all build errors.
-
+Docker was not available locally; Docker build, smoke and Compose restart checks are
+defined in CI and can be run using the commands in README.md. Local NuGet restore
+metadata retained a warning about unavailable vulnerability-service access; it did
+not prevent compilation or tests. Test results should not be interpreted as proof
+for arbitrary production traffic or unsynchronized server clocks.

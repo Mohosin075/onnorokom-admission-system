@@ -21,9 +21,13 @@ RUN dotnet test tests/SchoolAdmission.Tests/SchoolAdmission.Tests.csproj --no-re
 # Publish Web API
 RUN dotnet publish src/SchoolAdmission.Api/SchoolAdmission.Api.csproj -c Release -o /app/publish --no-restore
 
+FROM build AS test
+ENTRYPOINT ["dotnet", "test", "tests/SchoolAdmission.Tests/SchoolAdmission.Tests.csproj", "--no-restore", "-c", "Release", "--logger", "console;verbosity=normal"]
+
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 ENV ASPNETCORE_URLS=http://+:8080
 ENV PORT=8080
@@ -33,4 +37,3 @@ EXPOSE 8080
 COPY --from=build /app/publish .
 
 ENTRYPOINT ["dotnet", "SchoolAdmission.Api.dll"]
-

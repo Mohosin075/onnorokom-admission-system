@@ -1,65 +1,51 @@
-# ASSUMPTIONS & TECHNICAL DECISIONS
+# Assumptions and decisions
 
-This document details the assumptions, interpretations, and architectural decisions made while implementing the School Admission System take-home assignment.
-
----
-
-## 1. Multi-Process Concurrency & No-Overselling (Bonus Requirement)
-
-### The Challenge:
-When multiple backend instances run concurrently against a single shared PostgreSQL database, application-level in-memory locking (such as C# `lock` or `SemaphoreSlim`) is ineffective across process boundaries.
-
-### Our Solution:
-1. **Pessimistic Row-Level Locking (`SELECT ... FOR UPDATE`):**
-   - When a student initiates a seat reservation (`POST /classes/{classId}/holds`), the backend executes `SELECT * FROM classes WHERE "Id" = @id FOR UPDATE` within an explicit database transaction.
-   - PostgreSQL ensures that only one transaction holds the exclusive lock on that specific class record at any given millisecond.
-2. **Atomic Invariant Check:**
-   - Inside the locked transaction, active held seats (`status = 'HELD' AND expires_at > NOW()`) and confirmed seats (`status = 'CONFIRMED'`) are queried.
-   - If `heldSeats + confirmedSeats >= totalSeats`, the transaction is rolled back and a `409 Conflict` response is dispatched.
-   - If seats remain, the `seat_holds` record is inserted and the transaction commits, releasing the lock.
-3. **Result:**
-   - Regardless of whether there is 1 backend instance or 10 parallel instances running across separate ports or Docker containers, overselling is physically and mathematically impossible.
-
----
-
-## 2. Instant Seat Availability & Auto-Expiry Logic
-
-### Specification Note:
-Rule 2 requires that expired holds automatically free up seats without requiring manual API calls.
-
-### Decision:
-We implemented a **two-tiered expiry strategy**:
-1. **Query-Level Dynamic Evaluation (Real-Time):**
-   - Active seat calculations throughout the system strictly enforce the condition `expires_at > UTC NOW()`.
-   - The exact millisecond a hold reaches its expiry timestamp, its seat becomes available for incoming applicants in real-time. There is zero delay.
-2. **Asynchronous Maintenance Worker (`IHostedService`):**
-   - A background service runs every 5 seconds to batch update expired records (`status = 'EXPIRED'`), ensuring database integrity and clean audit trails.
-
----
-
-## 3. Student Identity & Header Validation
-
-### Decision:
-- `X-Student-Id` is required for hold creation, confirmation, hold cancellation, and viewing student-specific application history (`/me/holds`).
-- It must be a valid 17-digit numeric string (representing the official Birth Registration Number in Bangladesh).
-- If the header is missing or does not meet the 17-digit format on protected endpoints, the API returns `400 Bad Request` with an explanatory message.
-- `GET /holds/{holdId}` does not require the header per the specification table, allowing public verification of hold expiration timers.
-
----
-
-## 4. Idempotent Confirmation & Student Ownership
-
-### Decision:
-- When calling `POST /holds/{holdId}/confirm`, the system verifies that the caller's `X-Student-Id` matches the student who initiated the hold.
-- If the hold has already been confirmed (`status = 'CONFIRMED'`) by the same student, the endpoint returns `200 OK` with `{ "holdId": "...", "status": "CONFIRMED" }` without re-incrementing seat counts or failing.
-- Expired or cancelled holds cannot be confirmed and return `409 Conflict`.
-
----
-
-## 5. UI Polling & State Restoration
-
-### Decision:
-- Per UI Rule 3, the frontend polls `/classes` every 3 seconds to keep seat availability live without manual refreshes.
-- Student ID and active hold ID are persisted in the browser's `localStorage`.
-- Additionally, if a student inputs their 17-digit ID on a fresh session, the frontend queries `/me/holds` to check for any existing unexpired `HELD` seats and automatically loads the countdown timer.
-
+- Each named class/shift has independent seat capacity. A student may apply to
+  different classes, but may have only one active hold or confirmed admission in
+  any particular class. Expired/cancelled applications remain in history and can
+  be followed by a new application.
+- The assignment deliberately has no login. The 17 ASCII digits in `X-Student-Id`
+  identify the student; confirmation and cancellation check ownership. Missing or
+  invalid identity returns 400. Public `GET /holds/{holdId}` follows the contract.
+- Class names are trimmed, required and limited to 200 characters to match storage.
+  Capacity is a positive 32-bit integer. IDs use a full random GUID with a prefix.
+- Payment is simulated. Confirming one's valid held application returns 200.
+  Repeated confirmation by the same owner returns the same confirmed status.
+  Expired/cancelled applications return 409. Confirmed admissions cannot be cancelled.
+  Cancelling an unconfirmed application is idempotent; a historical expired hold
+  may be explicitly marked cancelled without changing capacity.
+- First-come means the order in which requests obtain the database class lock.
+  Browser click times and network arrival order cannot be guaranteed across clients.
+  No lottery or application-level scheduling queue is used.
+- All seat allocation and confirmation decisions use UTC after obtaining database
+  locks. Backend machines should have synchronized clocks. Class-row locks work
+  across processes sharing the same PostgreSQL database; no in-process mutex is
+  required. Confirmation/cancellation lock class first and hold second. This prevents
+  delayed confirmation from consuming a seat already released to a new applicant.
+- Read endpoints derive EXPIRED once the expiry time has passed and never write
+  tracked stale status back to storage. A worker conditionally persists expired
+  HELD rows every five seconds; confirmed or cancelled rows cannot be overwritten.
+  Seats are reusable at expiry even before the worker runs.
+- Explicit transactions use Npgsql's default non-retrying execution strategy.
+  Automatic per-command retries are disabled because they are incompatible with
+  an unwrapped user transaction. Failed transactions roll back and release locks.
+- PostgreSQL is required at runtime. Startup fails if schema initialization fails.
+  Versioned migrations and a startup advisory lock support persistent volumes and
+  multiple API hosts. The initial migration adopts the original matching schema;
+  it is not a general repair mechanism for arbitrarily modified databases.
+- Classes poll every three seconds; active status and history poll every four seconds.
+  A local one-second timer disables payment and refreshes history at expiry. The server
+  remains authoritative. Requests time out after ten seconds and show readable errors.
+- Student identity and the selected hold persist in localStorage. New browsers start
+  with an empty identity. Changing identity clears the previous selection and ignores
+  pending results belonging to the previous student. Valid IDs also restore active
+  applications from server history. If browser storage is disabled, the current session
+  still works but cannot persist across browser restarts.
+- The frontend API URL is compiled into the static bundle. Changing VITE_API_URL
+  requires rebuilding the frontend image. Compose keeps PostgreSQL internal so it
+  does not conflict with an existing host installation on port 5432.
+- Integration tests use disposable databases and two independent API hosts, not two
+  separate OS processes. Actual cross-process protection comes from PostgreSQL locks.
+  The local HTTP smoke test additionally ran two separate API processes against
+  the same temporary PostgreSQL database.
+  GitHub Actions additionally exercises the containerized HTTP service and persistence.

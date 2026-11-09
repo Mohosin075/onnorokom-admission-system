@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { HoldItem } from '../types';
-import { useStudent } from '../context/StudentContext';
+import { useStudent } from '../context/student-store';
 import { api, getErrorMessage } from '../services/api';
 import { FileText, RefreshCw, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react';
 
@@ -17,8 +17,12 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
   const [holds, setHolds] = useState<HoldItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const version = useRef(0);
+  const mounted = useRef(false);
 
-  const fetchMyHolds = async () => {
+  const fetchMyHolds = useCallback(async () => {
+    const request = ++version.current;
     if (!isValidStudentId) {
       setHolds([]);
       return;
@@ -28,20 +32,24 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
     setError(null);
     try {
       const data = await api.getMyHolds(studentId);
-      setHolds(data);
+      if (mounted.current && request === version.current) setHolds(data);
     } catch (err) {
-      setError(getErrorMessage(err));
+      if (mounted.current && request === version.current) setError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (mounted.current && request === version.current) setLoading(false);
     }
-  };
+  }, [isValidStudentId, studentId]);
 
   useEffect(() => {
-    fetchMyHolds();
-  }, [studentId, refreshTrigger]);
+    mounted.current = true;
+    const initial = setTimeout(() => { void fetchMyHolds(); }, 0);
+    const poll = setInterval(() => { void fetchMyHolds(); }, 4000);
+    const clock = setInterval(() => setNow(Date.now()), 1000);
+    return () => { mounted.current = false; clearTimeout(initial); clearInterval(poll); clearInterval(clock); };
+  }, [fetchMyHolds, refreshTrigger]);
 
   const getStatusBadge = (status: string, expiresAt: string) => {
-    const isActuallyExpired = status === 'EXPIRED' || (status === 'HELD' && new Date(expiresAt).getTime() < Date.now());
+    const isActuallyExpired = status === 'EXPIRED' || (status === 'HELD' && new Date(expiresAt).getTime() <= now);
 
     if (status === 'CONFIRMED') {
       return (
@@ -137,7 +145,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {holds.map((h) => {
-                const isHeld = h.status === 'HELD' && new Date(h.expiresAt).getTime() > Date.now();
+                const isHeld = h.status === 'HELD' && new Date(h.expiresAt).getTime() > now;
                 return (
                   <tr key={h.holdId} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-6 py-3.5 font-mono text-xs text-slate-600">{h.holdId}</td>

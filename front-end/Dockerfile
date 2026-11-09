@@ -7,10 +7,15 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+ARG VITE_API_URL=http://localhost:8080
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
+FROM build AS test
+CMD ["npm", "test"]
+
 # Production stage
-FROM nginx:alpine
+FROM nginx:alpine AS runtime
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
@@ -18,4 +23,3 @@ COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 3000
 
 CMD ["nginx", "-g", "daemon off;"]
-

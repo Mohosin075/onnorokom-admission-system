@@ -51,20 +51,11 @@ public class HoldExpiryBackgroundService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var holdRepository = scope.ServiceProvider.GetRequiredService<IHoldRepository>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
         var now = DateTime.UtcNow;
-        var expiredHolds = await holdRepository.GetPendingExpiredHoldsAsync(now, 100, cancellationToken);
-
-        if (expiredHolds.Count > 0)
+        var count = await holdRepository.ExpireHoldsAsync(now, cancellationToken);
+        if (count > 0)
         {
-            foreach (var hold in expiredHolds)
-            {
-                hold.CheckAndExpire(now);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Cleaned up {Count} expired holds.", expiredHolds.Count);
+            _logger.LogInformation("Cleaned up {Count} expired holds.", count);
         }
     }
 }

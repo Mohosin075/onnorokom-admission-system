@@ -21,6 +21,9 @@ public class ClassRoom
         if (string.IsNullOrWhiteSpace(name))
             throw new ValidationException("Class name is required.");
 
+        if (name.Trim().Length > 200)
+            throw new ValidationException("Class name cannot exceed 200 characters.");
+
         if (totalSeats <= 0)
             throw new ValidationException("Total seats must be greater than zero.");
 

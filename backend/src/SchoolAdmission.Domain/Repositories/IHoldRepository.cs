@@ -5,6 +5,8 @@ namespace SchoolAdmission.Domain.Repositories;
 public interface IHoldRepository
 {
     Task<SeatHold?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
+    Task<SeatHold?> GetByIdForUpdateAsync(string id, CancellationToken cancellationToken = default);
+    Task<int> ExpireHoldsAsync(DateTime now, CancellationToken cancellationToken = default);
     Task<SeatHold?> GetByIdWithClassAsync(string id, CancellationToken cancellationToken = default);
     Task<List<SeatHold>> GetByStudentIdAsync(string studentId, CancellationToken cancellationToken = default);
     Task<bool> HasActiveHoldOrAdmissionAsync(string studentId, string classId, DateTime now, CancellationToken cancellationToken = default);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStudent } from '../context/StudentContext';
+import { useStudent } from '../context/student-store';
 import { School, UserCheck, AlertCircle, ShieldAlert } from 'lucide-react';
 
 interface NavbarProps {

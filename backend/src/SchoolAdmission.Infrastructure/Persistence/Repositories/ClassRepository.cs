@@ -27,9 +27,9 @@ public class ClassRepository : IClassRepository
             // PostgreSQL Row-Level Lock: guarantees serialized access to the class during seat reservation
             var locked = await _context.Classes
                 .FromSqlInterpolated($"SELECT * FROM classes WHERE id = {id} FOR UPDATE")
-                .FirstOrDefaultAsync(cancellationToken);
+                .ToListAsync(cancellationToken);
 
-            return locked;
+            return locked.SingleOrDefault();
         }
 
         // For in-memory testing environments

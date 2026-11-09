@@ -30,7 +30,7 @@ public class ClassService : IClassService
         if (request.TotalSeats <= 0)
             throw new ValidationException("Total seats must be greater than zero.");
 
-        var classId = $"c_{Guid.NewGuid().ToString("N")[..8]}";
+        var classId = $"c_{Guid.NewGuid():N}";
         var newClass = new ClassRoom(classId, request.Name, request.TotalSeats);
 
         await _classRepository.AddAsync(newClass, cancellationToken);
@@ -71,8 +71,8 @@ public class ClassService : IClassService
             throw new EntityNotFoundException("Class", classId);
 
         var now = DateTime.UtcNow;
-        var held = await _holdRepository.GetActiveHoldCountAsync(cls.Id, now, cancellationToken);
-        var confirmed = await _holdRepository.GetConfirmedCountAsync(cls.Id, cancellationToken);
+        var counts = await _holdRepository.GetSeatCountsForClassesAsync(now, cancellationToken);
+        var (held, confirmed) = counts.GetValueOrDefault(cls.Id);
         var available = Math.Max(0, cls.TotalSeats - (held + confirmed));
 
         return new ClassResponse(

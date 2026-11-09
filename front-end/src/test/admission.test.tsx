@@ -1,0 +1,121 @@
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import App from '../App';
+import { StudentProvider } from '../context/StudentContext';
+import { useStudent } from '../context/student-store';
+import { api } from '../services/api';
+import type { HoldItem } from '../types';
+
+vi.mock('../services/api', () => ({
+  api: { getClasses: vi.fn(), getMyHolds: vi.fn(), getHoldById: vi.fn(),
+    createHold: vi.fn(), confirmHold: vi.fn(), cancelHold: vi.fn(), createClass: vi.fn() },
+  getErrorMessage: (error: unknown) => error instanceof Error ? error.message : 'Request failed',
+}));
+
+const STUDENT_A = '20260000000000001';
+const STUDENT_B = '20260000000000002';
+const hold = (id: string, expiresAt = new Date(Date.now() + 600000).toISOString()): HoldItem => ({
+  holdId: id, classId: 'c_test', status: 'HELD', expiresAt,
+});
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(api.getClasses).mockResolvedValue([{
+    id: 'c_test', name: 'Class 6 - Morning', totalSeats: 5,
+    heldSeats: 0, confirmedSeats: 0, availableSeats: 5,
+  }]);
+  vi.mocked(api.getMyHolds).mockResolvedValue([]);
+  vi.mocked(api.getHoldById).mockImplementation(async id => hold(id));
+  vi.mocked(api.confirmHold).mockResolvedValue({ holdId: 'h_b', status: 'CONFIRMED' });
+});
+
+describe('student identity and restoration', () => {
+  it('requires an explicit student ID on a fresh browser', async () => {
+    render(<App />);
+    expect(screen.getByLabelText('Student ID:')).toHaveValue('');
+    expect(await screen.findByRole('button', { name: /Apply Now/i })).toBeDisabled();
+  });
+
+  it('restores saved state and clears the previous hold when identity changes', () => {
+    localStorage.setItem('school_admission_student_id', STUDENT_A);
+    localStorage.setItem('school_admission_active_hold_id', 'h_a');
+    function Probe() {
+      const student = useStudent();
+      return <><output>{student.studentId}:{student.activeHoldId || 'none'}</output>
+        <button onClick={() => student.setStudentId(STUDENT_B)}>Switch</button></>;
+    }
+    const view = render(<StudentProvider><Probe /></StudentProvider>);
+    expect(screen.getByRole('status')).toHaveTextContent(`${STUDENT_A}:h_a`);
+    fireEvent.click(screen.getByText('Switch'));
+    expect(screen.getByRole('status')).toHaveTextContent(`${STUDENT_B}:none`);
+    expect(localStorage.getItem('school_admission_active_hold_id')).toBeNull();
+    view.unmount();
+    render(<StudentProvider><Probe /></StudentProvider>);
+    expect(screen.getByRole('status')).toHaveTextContent(`${STUDENT_B}:none`);
+  });
+
+  it('ignores a previous student response after switching identity', async () => {
+    localStorage.setItem('school_admission_student_id', STUDENT_A);
+    localStorage.setItem('school_admission_active_hold_id', 'h_a');
+    let resolveOld!: (value: HoldItem) => void;
+    const oldResponse = new Promise<HoldItem>(resolve => { resolveOld = resolve; });
+    vi.mocked(api.getHoldById).mockImplementation(id => id === 'h_a' ? oldResponse : Promise.resolve(hold(id)));
+    vi.mocked(api.getMyHolds).mockImplementation(async id => id === STUDENT_B ? [hold('h_b')] : []);
+    render(<App />);
+    await waitFor(() => expect(api.getHoldById).toHaveBeenCalledWith('h_a'));
+    fireEvent.change(screen.getByLabelText('Student ID:'), { target: { value: STUDENT_B } });
+    await screen.findByText('ID: h_b');
+    await act(async () => resolveOld(hold('h_a')));
+    expect(screen.queryByText('ID: h_a')).not.toBeInTheDocument();
+    const pay = await screen.findByRole('button', { name: /Pay Admission Fee/i });
+    await waitFor(() => expect(pay).toBeEnabled());
+    fireEvent.click(pay);
+    await waitFor(() => expect(api.confirmHold).toHaveBeenCalledWith('h_b', STUDENT_B));
+  });
+});
+
+describe('application status and errors', () => {
+  it('allows payment for a new hold after the previous application expired', async () => {
+    localStorage.setItem('school_admission_student_id', STUDENT_A);
+    localStorage.setItem('school_admission_active_hold_id', 'h_old');
+    vi.mocked(api.getHoldById).mockImplementation(async id =>
+      id === 'h_old' ? hold(id, new Date(Date.now() - 1000).toISOString()) : hold(id));
+    vi.mocked(api.createHold).mockResolvedValue(hold('h_new'));
+    render(<App />);
+    expect(await screen.findByRole('button', { name: /Expired/i })).toBeDisabled();
+    fireEvent.click(await screen.findByRole('button', { name: /Apply Now/i }));
+    await screen.findByText('ID: h_new');
+    await waitFor(() => expect(screen.getByRole('button', { name: /Pay Admission Fee/i })).toBeEnabled());
+  });
+
+  it('disables payment and updates history at expiry without a reload', async () => {
+    localStorage.setItem('school_admission_student_id', STUDENT_A);
+    localStorage.setItem('school_admission_active_hold_id', 'h_timer');
+    const timedHold = hold('h_timer', new Date(Date.now() + 500).toISOString());
+    vi.mocked(api.getHoldById).mockResolvedValue(timedHold);
+    vi.mocked(api.getMyHolds).mockResolvedValue([timedHold]);
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole('button', { name: /Pay Admission Fee/i })).toBeEnabled());
+    expect(await screen.findByRole('button', { name: /Expired/i }, { timeout: 2000 })).toBeDisabled();
+    expect(await screen.findByText('EXPIRED', {}, { timeout: 2000 })).toBeInTheDocument();
+  });
+
+  it('shows a warning when background seat polling loses the server', async () => {
+    vi.mocked(api.getClasses).mockResolvedValueOnce([]).mockRejectedValue(new Error('Server unavailable'));
+    render(<App />);
+    await screen.findByText('No classes found');
+    expect(await screen.findByRole('alert', {}, { timeout: 4500 })).toHaveTextContent('Seat counts may be out of date');
+  });
+
+  it('opens an accessible class dialog and restores focus on Escape', () => {
+    render(<App />);
+    const open = screen.getByRole('button', { name: /Create Class/i });
+    open.focus();
+    fireEvent.click(open);
+    expect(screen.getByRole('dialog', { name: 'Create New Class' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Class & Shift Name')).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(open).toHaveFocus();
+  });
+});

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ClassItem } from '../types';
-import { useStudent } from '../context/StudentContext';
+import { useStudent } from '../context/student-store';
 import { api, getErrorMessage } from '../services/api';
 import { Users, CheckCircle, Clock, Sparkles } from 'lucide-react';
 
@@ -19,6 +19,11 @@ export const ClassList: React.FC<ClassListProps> = ({
 }) => {
   const { studentId, isValidStudentId } = useStudent();
   const [holdingId, setHoldingId] = useState<string | null>(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const handleApply = async (classItem: ClassItem) => {
     if (!isValidStudentId) {
@@ -34,11 +39,11 @@ export const ClassList: React.FC<ClassListProps> = ({
     setHoldingId(classItem.id);
     try {
       const response = await api.createHold(classItem.id, studentId);
-      onHoldCreated(response.holdId);
+      if (mounted.current) onHoldCreated(response.holdId);
     } catch (err) {
-      onError(getErrorMessage(err));
+      if (mounted.current) onError(getErrorMessage(err));
     } finally {
-      setHoldingId(null);
+      if (mounted.current) setHoldingId(null);
     }
   };
 

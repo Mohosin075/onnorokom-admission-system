@@ -23,13 +23,11 @@ public static class DependencyInjection
                 options.UseNpgsql(connectionString, npgsqlOptions =>
                 {
                     npgsqlOptions.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                    npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3);
                 });
             }
             else
             {
-                // Fallback for tests or local standalone execution
-                options.UseInMemoryDatabase("SchoolAdmissionDb");
+                throw new InvalidOperationException("Set ConnectionStrings__DefaultConnection to a PostgreSQL connection string.");
             }
         });
 

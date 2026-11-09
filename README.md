@@ -1,101 +1,109 @@
-# School Admission System — Recruitment Assignment
+# School Admission System
 
-A robust, cloud-ready, and concurrency-safe School Admission System built for **OnnoRokom Projukti Limited** (Assistant Software Engineer Recruitment).
+A first-come, first-served admission application built with .NET 8, PostgreSQL,
+React 19, TypeScript and Vite. Each class/shift has its own capacity. Students
+reserve seats with a 17-digit birth registration number, simulate payment, cancel
+holds and view their application history. No login or payment gateway is required.
 
-The system operates strictly on a **First-Come, First-Served** model with high concurrency protection, automated hold expirations, idempotent admission confirmation, and real-time frontend synchronization.
+## Run with Docker
 
----
+From the repository root:
 
-## 📌 Tech Stack
-
-- **Backend:** C# (.NET 8 Clean Architecture)
-- **Database:** PostgreSQL 16 & Entity Framework Core (with Row-Level Locking `SELECT ... FOR UPDATE`)
-- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS + Lucide Icons
-- **Deployment:** Docker & Docker Compose (Multi-stage build)
-- **Testing:** xUnit, FluentAssertions, EF Core In-Memory
-
----
-
-## 🚀 How to Run the Application with Docker
-
-Make sure Docker and Docker Compose are installed and running on your system.
-
-### 1. Start All Services
-
-From the root directory of the repository, execute:
-
-```bash
+```sh
 docker compose up --build
 ```
 
-This single command starts:
-1. **PostgreSQL Database** on port `5432` with health-check and persistent volume storage.
-2. **.NET 8 Backend API** on port `8080`.
-3. **React Frontend (Nginx SPA)** on port `3000`.
+Open the frontend at **http://localhost:3000**. The API is at
+**http://localhost:8080**, Swagger at **http://localhost:8080/swagger**, and readiness
+at **http://localhost:8080/health**. Only Docker with Compose is required.
 
-### 2. Access the Application
+PostgreSQL uses a named volume and is reachable inside the Compose network.
+`docker compose down` followed by `docker compose up` preserves admissions.
+`docker compose down --volumes` deletes the database; use it only to intentionally
+reset local data.
 
-- **Frontend Web UI:** [http://localhost:3000](http://localhost:3000)
-- **Backend API & Swagger UI:** [http://localhost:8080/swagger](http://localhost:8080/swagger)
+Startup applies versioned EF Core migrations. The initial migration also adopts
+the original matching `EnsureCreated` schema without deleting its existing data.
+A PostgreSQL advisory lock serializes migrations when API instances start together.
+Database initialization failure stops API startup instead of serving a broken app.
 
----
+## Configuration
 
-## 🧪 Running Automated Tests
+- Backend: `ConnectionStrings__DefaultConnection` overrides the PostgreSQL connection
+  string. Compose supplies it automatically. There is no in-memory production fallback.
+- `HOLD_DURATION_SECONDS`: hold lifetime, default 600 seconds. Set it in the root
+  `.env` or shell before starting Compose; for example, 10 for a short expiry demo.
+- `VITE_API_URL`: frontend API URL, default `http://localhost:8080`. Compose passes
+  this as a build argument. After changing it, run `docker compose up --build`.
+  This is the URL the user's browser can reach, not the Compose service hostname.
+- For frontend development, copy `front-end/.env.example` to `front-end/.env`.
 
-The test suite includes **7 automated tests**, including **Unit Tests**, **Idempotency Tests**, and the mandatory **High-Concurrency Test** demonstrating that seats can never be oversold.
+## Tests using only Docker
 
-To run the backend test suite locally:
-
-```bash
-cd backend
-dotnet test
+```sh
+docker compose --profile test run --build --rm tests
+docker compose --profile test run --build --rm frontend-tests
+docker compose --profile test run --rm frontend-tests npm run lint -- --deny-warnings
 ```
 
-### Test Highlights:
-- `CreateHold_UnderHighConcurrency_NeverOversellsSeats`: 30 concurrent requests attempt to claim 5 seats simultaneously. Strictly 5 succeed (`201`), 25 fail with Conflict (`409`), and `heldSeats + confirmedSeats` never exceeds capacity.
-- `ConfirmHold_MultipleTimes_IsIdempotentAndReturnsConfirmedStatus`: Verifies duplicate confirmation calls do not increase seat counters or cause errors.
-- `CreateHold_WhenStudentAlreadyHasActiveHoldInSameClass_ThrowsConflict`: Enforces single active application per student per class.
-- `ConfirmHold_WhenExpired_ThrowsConflict`: Ensures expired holds cannot be confirmed.
+The backend suite has 6 service tests and 8 real PostgreSQL integration tests.
+Integration tests create uniquely named temporary databases and drop only those
+databases afterward. The test PostgreSQL user needs permission to create databases.
+The frontend suite has 7 regression tests for identity switching, restoration,
+expired/new holds, stale responses, background connection failures and dialog focus.
 
----
+The backend integration tests verify:
 
-## 🏗️ Architecture & Concurrency Strategy
+- Two independent API hosts share five seats safely under 30 concurrent HTTP requests:
+  exactly five return 201 and the other 25 return 409. No test-side reservation lock is used.
+- Concurrent duplicate applications and competing confirmation/cancellation requests.
+- A confirmation waiting on a database lock rechecks expiry before it can succeed.
+- Ownership, JSON contracts, idempotency, invalid input, automatic expiry, restart
+  persistence and migration from the original schema.
 
-The project implements Microsoft's official **Clean Architecture**:
+For local development with .NET 8 SDK and a PostgreSQL server, set
+`TEST_POSTGRES_CONNECTION` to an administrative connection string, then run
+`dotnet test backend/SchoolAdmission.sln`. Without that variable, the 8 database tests
+are explicitly skipped, rather than simulated with InMemory.
 
-```text
-backend/
-├── src/
-│   ├── SchoolAdmission.Domain/          # Pure C# (Entities, Enums, Exceptions, Repository Interfaces)
-│   ├── SchoolAdmission.Application/     # CQRS/Services, DTOs, Validations, Options
-│   ├── SchoolAdmission.Infrastructure/  # EF Core, PostgreSQL Npgsql, DbContext, Row Locking, Expiry Background Service
-│   └── SchoolAdmission.Api/             # Controllers, Global Exception Handling, Swagger Filters, Program.cs
-└── tests/
-    └── SchoolAdmission.Tests/           # Concurrency Tests & Unit Tests
+Frontend development requires Node 22.12+ or a compatible newer release:
+
+```sh
+cd front-end
+npm ci
+npm test
+npm run lint
+npm run build
+npm run dev
 ```
 
-### How Concurrency & No-Overselling is Guaranteed:
-1. **Database Row-Level Locking:** During seat reservation, the backend requests a row lock on the class (`SELECT ... FOR UPDATE`).
-2. **Atomic Verification:** The active held seats (`status = HELD` and `expires_at > now`) and confirmed seats are counted inside the transaction. If available seats are zero, a `409 Conflict` is returned immediately.
-3. **Multi-Instance Safety:** Even if multiple backend instances run behind a load balancer against the same PostgreSQL database, the row-level lock serializes concurrent seat allocation, mathematically preventing overselling.
-4. **Immediate Auto-Expiry:** The system dynamically computes active seats by checking `expires_at > UTC now`. The moment a hold expires, its seat is instantaneously available for new applicants, while a background worker updates the database status asynchronously.
+With the application running, an optional Python 3 smoke test exercises all eight
+required endpoints and concurrent reservation against the actual HTTP server:
 
----
-
-## 📁 Repository Structure
-
-```text
-.
-├── backend/                  # .NET 8 Web API & Clean Architecture Solution
-│   ├── src/
-│   ├── tests/
-│   └── Dockerfile
-├── front-end/                # React 19 + TypeScript + Vite Frontend
-│   ├── src/
-│   ├── nginx.conf
-│   └── Dockerfile
-├── docker-compose.yml        # Orchestrates Database, Backend, and Frontend
-├── README.md                 # Project Setup & Execution Guide
-├── ASSUMPTIONS.md            # Assumptions & Design Decisions
-└── AI_USAGE.md               # Transparency report on AI tool usage
+```sh
+python scripts/smoke.py
+docker compose down
+docker compose up --wait
+python scripts/smoke.py --verify-persistence
 ```
+
+GitHub Actions runs the Docker builds, both test suites, lint, the HTTP smoke test,
+and persistence verification after Compose down/up. Docker execution must still be
+checked on the target machine or in CI; the local verification used PostgreSQL 18,
+.NET 8 and Node 24 without Docker. Local HTTP smoke checks also used two separate
+API processes sharing the same database; add `--secondary-api http://localhost:8081`
+to the smoke command when a second API process is running on that port.
+
+## Concurrency and structure
+
+Reservation, confirmation and cancellation serialize on the PostgreSQL class row.
+Confirmation and cancellation additionally lock the hold row before validating its
+current status and expiry. Expiry uses a conditional database update that cannot
+replace a confirmed status. Read endpoints compute effective expiry without writing
+stale records. Explicit transactions use the non-retrying PostgreSQL strategy; a
+retrying strategy must wrap the entire transaction if added later.
+
+`backend/src` contains Domain, Application, Infrastructure and API projects;
+`backend/tests` contains service and HTTP integration tests. `front-end/src` contains
+the React application and regression tests. Design choices are in `ASSUMPTIONS.md`,
+and AI assistance is recorded in `AI_USAGE.md`.

@@ -1,9 +1,10 @@
 import axios, { type AxiosError } from 'axios';
-import type { ClassItem, CreateClassPayload, HoldItem, ConfirmHoldResponse } from '../types';
+import type { ClassItem, CreateClassPayload, CreateClassResponse, HoldItem, ConfirmHoldResponse } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 const apiClient = axios.create({
+  timeout: 10000,
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -22,8 +23,8 @@ export const api = {
     return response.data;
   },
 
-  async createClass(payload: CreateClassPayload): Promise<ClassItem> {
-    const response = await apiClient.post<ClassItem>('/classes', payload);
+  async createClass(payload: CreateClassPayload): Promise<CreateClassResponse> {
+    const response = await apiClient.post<CreateClassResponse>('/classes', payload);
     return response.data;
   },
 
@@ -97,7 +98,10 @@ export function getErrorMessage(error: unknown): string {
       return 'Requested resource not found.';
     }
     if (axiosError.code === 'ERR_NETWORK') {
-      return 'Cannot reach backend server. Please check if backend is running on http://localhost:8080.';
+      return 'Cannot connect to the admission server. Please try again shortly.';
+    }
+    if (axiosError.code === 'ECONNABORTED') {
+      return 'The admission server took too long to respond. Please try again.';
     }
   }
   if (error instanceof Error) {

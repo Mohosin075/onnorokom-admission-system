@@ -1,0 +1,33 @@
+name: Admission checks
+on: [push, pull_request]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Build and start all services
+        run: docker compose up --build --wait --wait-timeout 180
+      - name: Backend unit and real PostgreSQL integration tests
+        run: docker compose --profile test run --build --rm tests
+      - name: Frontend regression tests and lint
+        run: |
+          docker compose --profile test run --build --rm frontend-tests
+          docker compose --profile test run --rm frontend-tests npm run lint -- --deny-warnings
+      - name: Deployed API contract and concurrency smoke test
+        run: python scripts/smoke.py
+      - name: Restart containers and verify persistence
+        run: |
+          docker compose down
+          docker compose up --wait --wait-timeout 180
+          python scripts/smoke.py --verify-persistence
+      - name: Container logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop services
+        if: always()
+        run: docker compose --profile test down --volumes

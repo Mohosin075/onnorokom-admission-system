@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { HoldItem, ClassItem } from '../types';
-import { useStudent } from '../context/StudentContext';
+import { useStudent } from '../context/student-store';
 import { api, getErrorMessage } from '../services/api';
 import { Clock, CreditCard, XCircle, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 
@@ -22,28 +22,41 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
   const { studentId } = useStudent();
   const [hold, setHold] = useState<HoldItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
-  const [isExpiredLocal, setIsExpiredLocal] = useState(false);
+  const requestVersion = useRef(0);
+  const mounted = useRef(false);
+  const errorHandler = useRef(onError);
+  useEffect(() => { errorHandler.current = onError; }, [onError]);
 
   // Fetch hold details
-  const fetchHold = async () => {
+  const fetchHold = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
       const data = await api.getHoldById(holdId);
+      if (!mounted.current || version !== requestVersion.current) return;
+      setLoadError(null);
+      setRemainingSeconds(Math.max(0, Math.ceil((new Date(data.expiresAt).getTime() - Date.now()) / 1000)));
       setHold(data);
     } catch (err) {
-      onError(getErrorMessage(err));
+      if (mounted.current && version === requestVersion.current) {
+        const message = getErrorMessage(err);
+        setLoadError(message);
+        errorHandler.current(message);
+      }
     } finally {
-      setLoading(false);
+      if (mounted.current && version === requestVersion.current) setLoading(false);
     }
-  };
+  }, [holdId]);
 
   useEffect(() => {
-    fetchHold();
+    mounted.current = true;
+    const initial = setTimeout(() => { void fetchHold(); }, 0);
     // Poll hold status every 4 seconds in case status changed on server
     const interval = setInterval(fetchHold, 4000);
-    return () => clearInterval(interval);
-  }, [holdId]);
+    return () => { mounted.current = false; clearTimeout(initial); clearInterval(interval); };
+  }, [fetchHold]);
 
   // Real-time Countdown Timer calculation
   useEffect(() => {
@@ -52,17 +65,14 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
     const calculateRemaining = () => {
       const expiryTime = new Date(hold.expiresAt).getTime();
       const now = Date.now();
-      const diff = Math.max(0, Math.floor((expiryTime - now) / 1000));
+      const diff = Math.max(0, Math.ceil((expiryTime - now) / 1000));
       setRemainingSeconds(diff);
 
-      if (diff === 0 && hold.status === 'HELD') {
-        setIsExpiredLocal(true);
-      }
     };
 
-    calculateRemaining();
+    const initial = setTimeout(calculateRemaining, 0);
     const timer = setInterval(calculateRemaining, 1000);
-    return () => clearInterval(timer);
+    return () => { clearTimeout(initial); clearInterval(timer); };
   }, [hold]);
 
   const handleConfirmPayment = async () => {
@@ -70,12 +80,13 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
     setActionLoading(true);
     try {
       await api.confirmHold(hold.holdId, studentId);
+      if (!mounted.current) return;
       await fetchHold();
-      onHoldUpdated();
+      if (mounted.current) onHoldUpdated();
     } catch (err) {
-      onError(getErrorMessage(err));
+      if (mounted.current) onError(getErrorMessage(err));
     } finally {
-      setActionLoading(false);
+      if (mounted.current) setActionLoading(false);
     }
   };
 
@@ -87,12 +98,13 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
     setActionLoading(true);
     try {
       await api.cancelHold(hold.holdId, studentId);
+      if (!mounted.current) return;
       onHoldDismissed();
       onHoldUpdated();
     } catch (err) {
-      onError(getErrorMessage(err));
+      if (mounted.current) onError(getErrorMessage(err));
     } finally {
-      setActionLoading(false);
+      if (mounted.current) setActionLoading(false);
     }
   };
 
@@ -105,13 +117,16 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
     );
   }
 
-  if (!hold) return null;
+  if (!hold) return <div role="alert" className="p-4 bg-rose-50 rounded-xl border border-rose-200">
+    <p>{loadError || 'Application could not be loaded.'}</p>
+    <button onClick={onHoldDismissed} className="mt-2 underline">Dismiss Application</button>
+  </div>;
 
   const currentClass = classes.find((c) => c.id === hold.classId);
   const className = hold.className || currentClass?.name || `Class ID: ${hold.classId}`;
 
   // Check if effectively expired
-  const isExpired = hold.status === 'EXPIRED' || (hold.status === 'HELD' && (remainingSeconds <= 0 || isExpiredLocal));
+  const isExpired = hold.status === 'EXPIRED' || (hold.status === 'HELD' && remainingSeconds <= 0);
   const isConfirmed = hold.status === 'CONFIRMED';
   const isCancelled = hold.status === 'CANCELLED';
   const isHeld = hold.status === 'HELD' && !isExpired;

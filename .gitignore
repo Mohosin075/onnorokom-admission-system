@@ -1,4 +1,8 @@
 ## .NET & Visual Studio
+.tools/
+.local/
+__pycache__/
+**/TestResults/
 **/bin/
 **/obj/
 *.user

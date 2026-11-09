@@ -1,102 +1,103 @@
-using System.Collections.Concurrent;
+using System.Net;
+using System.Net.Http.Json;
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using SchoolAdmission.Application.Common;
-using SchoolAdmission.Application.Services;
-using SchoolAdmission.Domain.Entities;
-using SchoolAdmission.Domain.Exceptions;
-using SchoolAdmission.Infrastructure.Persistence;
-using SchoolAdmission.Infrastructure.Persistence.Repositories;
-using Xunit;
+using Npgsql;
+using SchoolAdmission.Application.DTOs;
 
 namespace SchoolAdmission.Tests;
 
-public class ConcurrencyTests
+public class ConcurrencyTests(PostgresFixture database) : IClassFixture<PostgresFixture>
 {
-    [Fact]
-    public async Task CreateHold_UnderHighConcurrency_NeverOversellsSeats()
+    private static async Task<string> CreateClass(HttpClient client, int seats = 1)
     {
-        // Arrange: Class with only 5 seats
-        const int totalSeats = 5;
-        const int concurrentRequests = 30;
-        var classId = $"c_concurrency_{Guid.NewGuid():N}";
+        var response = await client.PostAsJsonAsync("/classes", new { name = "Concurrency Class", totalSeats = seats });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<CreateClassResponse>())!.Id;
+    }
 
-        var dbOptions = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: $"ConcurrencyDb_{Guid.NewGuid():N}")
-            .Options;
+    private static HttpRequestMessage Request(HttpMethod method, string url, string student) =>
+        new(method, url) { Headers = { { "X-Student-Id", student } } };
 
-        // Seed initial class
-        using (var initialContext = new ApplicationDbContext(dbOptions))
+    [PostgresFact]
+    public async Task TwoApiHosts_ThirtyConcurrentRequests_NeverOversellFiveSeats()
+    {
+        using var first = database.CreateFactory();
+        using var second = database.CreateFactory();
+        using var a = first.CreateClient();
+        using var b = second.CreateClient();
+        var classId = await CreateClass(a, 5);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requests = Enumerable.Range(1, 30).Select(async i =>
         {
-            var testClass = new ClassRoom(classId, "Class 6 - Morning Concurrency", totalSeats);
-            await initialContext.Classes.AddAsync(testClass);
-            await initialContext.SaveChangesAsync();
-        }
+            await start.Task;
+            using var request = Request(HttpMethod.Post, $"/classes/{classId}/holds", $"2026{i:D13}");
+            return await (i % 2 == 0 ? a : b).SendAsync(request);
+        }).ToArray();
+        start.SetResult();
+        var responses = await Task.WhenAll(requests);
+        responses.Count(r => r.StatusCode == HttpStatusCode.Created).Should().Be(5);
+        responses.Count(r => r.StatusCode == HttpStatusCode.Conflict).Should().Be(25);
+        var state = await a.GetFromJsonAsync<ClassResponse>($"/classes/{classId}");
+        (state!.HeldSeats + state.ConfirmedSeats).Should().Be(5);
+        foreach (var response in responses) response.Dispose();
+    }
 
-        var holdOptions = Options.Create(new HoldOptions { HoldDurationSeconds = 600 });
-        var successHolds = new ConcurrentBag<string>();
-        var conflictFailures = new ConcurrentBag<string>();
-        var unexpectedExceptions = new ConcurrentBag<Exception>();
+    [PostgresFact]
+    public async Task SimultaneousDuplicateApplications_OnlyOneSucceeds()
+    {
+        using var factory = database.CreateFactory();
+        using var client = factory.CreateClient();
+        var classId = await CreateClass(client, 20);
+        var responses = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ =>
+            client.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20260000000000001"))));
+        responses.Count(r => r.StatusCode == HttpStatusCode.Created).Should().Be(1);
+        responses.Count(r => r.StatusCode == HttpStatusCode.Conflict).Should().Be(19);
+        foreach (var response in responses) response.Dispose();
+    }
 
-        // Concurrency lock for simulating DB row-level lock in In-Memory provider
-        var rowLock = new SemaphoreSlim(1, 1);
+    [PostgresFact]
+    public async Task ConfirmRacingCancellation_HasOneConsistentOutcome()
+    {
+        using var factory = database.CreateFactory();
+        using var client = factory.CreateClient();
+        var classId = await CreateClass(client);
+        const string student = "20260000000000002";
+        using var created = await client.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", student));
+        var hold = (await created.Content.ReadFromJsonAsync<CreateHoldResponse>())!;
+        var results = await Task.WhenAll(
+            client.SendAsync(Request(HttpMethod.Post, $"/holds/{hold.HoldId}/confirm", student)),
+            client.SendAsync(Request(HttpMethod.Delete, $"/holds/{hold.HoldId}", student)));
+        results.Count(r => r.IsSuccessStatusCode).Should().Be(1);
+        results.Count(r => r.StatusCode == HttpStatusCode.Conflict).Should().Be(1);
+        var final = (await client.GetFromJsonAsync<HoldStatusResponse>($"/holds/{hold.HoldId}"))!;
+        final.Status.Should().Be(results[0].IsSuccessStatusCode ? "CONFIRMED" : "CANCELLED");
+        foreach (var response in results) response.Dispose();
+    }
 
-        // Act: 30 students trying to hold seats at the exact same instant
-        var tasks = Enumerable.Range(1, concurrentRequests).Select(async i =>
-        {
-            // 17-digit student IDs
-            var studentId = $"2026{i:D13}";
-
-            using var context = new ApplicationDbContext(dbOptions);
-            var classRepo = new ClassRepository(context);
-            var holdRepo = new HoldRepository(context);
-            var unitOfWork = new UnitOfWork(context);
-            var holdService = new HoldService(classRepo, holdRepo, unitOfWork, holdOptions);
-
-            try
-            {
-                await rowLock.WaitAsync();
-                try
-                {
-                    var response = await holdService.CreateHoldAsync(classId, studentId);
-                    successHolds.Add(response.HoldId);
-                }
-                finally
-                {
-                    rowLock.Release();
-                }
-            }
-            catch (ConflictException ex)
-            {
-                conflictFailures.Add(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                unexpectedExceptions.Add(ex);
-            }
-        });
-
-        await Task.WhenAll(tasks);
-
-        // Assert
-        unexpectedExceptions.Should().BeEmpty("there should be no unhandled 500 exceptions");
-        successHolds.Count.Should().Be(totalSeats, "exactly the number of available seats must be allocated");
-        conflictFailures.Count.Should().Be(concurrentRequests - totalSeats, "all excess concurrent requests must be rejected with Conflict (409)");
-
-        // Verify Database State
-        using (var verifyContext = new ApplicationDbContext(dbOptions))
-        {
-            var holdRepo = new HoldRepository(verifyContext);
-            var now = DateTime.UtcNow;
-
-            var heldCount = await holdRepo.GetActiveHoldCountAsync(classId, now);
-            var confirmedCount = await holdRepo.GetConfirmedCountAsync(classId);
-
-            (heldCount + confirmedCount).Should().Be(totalSeats);
-            (heldCount + confirmedCount).Should().BeLessThanOrEqualTo(totalSeats, "Held + Confirmed must NEVER exceed TotalSeats (No Overselling Rule)");
-        }
+    [PostgresFact]
+    public async Task ConfirmationWaitingForClassLock_RechecksExpiryBeforeAllocating()
+    {
+        using var factory = database.CreateFactory(2);
+        using var client = factory.CreateClient();
+        var classId = await CreateClass(client);
+        const string student = "20260000000000003";
+        using var created = await client.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", student));
+        var hold = (await created.Content.ReadFromJsonAsync<CreateHoldResponse>())!;
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using var command = new NpgsqlCommand("SELECT id FROM classes WHERE id = @id FOR UPDATE", connection, transaction);
+        command.Parameters.AddWithValue("id", classId);
+        await command.ExecuteScalarAsync();
+        var confirm = client.SendAsync(Request(HttpMethod.Post, $"/holds/{hold.HoldId}/confirm", student));
+        var delay = hold.ExpiresAt - DateTime.UtcNow + TimeSpan.FromMilliseconds(100);
+        if (delay > TimeSpan.Zero) await Task.Delay(delay);
+        await transaction.CommitAsync();
+        using var result = await confirm;
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using var replacement = await client.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20260000000000004"));
+        replacement.StatusCode.Should().Be(HttpStatusCode.Created);
+        var state = (await client.GetFromJsonAsync<ClassResponse>($"/classes/{classId}"))!;
+        (state.HeldSeats + state.ConfirmedSeats).Should().Be(1);
     }
 }
-
