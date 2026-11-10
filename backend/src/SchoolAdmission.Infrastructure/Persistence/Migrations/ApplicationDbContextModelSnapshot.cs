@@ -45,6 +45,73 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
                     b.ToTable("AccountTokens");
                 });
 
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionApplication", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BirthRegistration")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClassId")
+                        .IsRequired()
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("GuardianName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReviewedById")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassId");
+
+                    b.HasIndex("Status", "SubmittedAt");
+
+                    b.HasIndex("UserId", "ClassId")
+                        .IsUnique();
+
+                    b.ToTable("Applications");
+                });
+
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionDocument", b =>
                 {
                     b.Property<string>("Id")
@@ -89,8 +156,7 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "Kind")
-                        .IsUnique();
+                    b.HasIndex("UserId", "Kind");
 
                     b.ToTable("Documents");
                 });
@@ -160,6 +226,25 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.ApplicationDocument", b =>
+                {
+                    b.Property<string>("ApplicationId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DocumentId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("ApplicationId", "Kind");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("ApplicationDocuments");
                 });
 
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.ClassRoom", b =>
@@ -387,6 +472,21 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionApplication", b =>
+                {
+                    b.HasOne("SchoolAdmission.Domain.Entities.ClassRoom", null)
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAdmission.Domain.Entities.PortalUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionDocument", b =>
                 {
                     b.HasOne("SchoolAdmission.Domain.Entities.PortalUser", null)
@@ -420,6 +520,21 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.ApplicationDocument", b =>
+                {
+                    b.HasOne("SchoolAdmission.Domain.Entities.AdmissionApplication", null)
+                        .WithMany("Documents")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAdmission.Domain.Entities.AdmissionDocument", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.SeatHold", b =>
                 {
                     b.HasOne("SchoolAdmission.Domain.Entities.ClassRoom", "ClassRoom")
@@ -429,6 +544,11 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("ClassRoom");
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionApplication", b =>
+                {
+                    b.Navigation("Documents");
                 });
 
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.ClassRoom", b =>

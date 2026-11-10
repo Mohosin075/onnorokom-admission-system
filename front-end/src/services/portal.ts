@@ -25,6 +25,30 @@ export interface Application {
   status: string;
   expiresAt: string;
 }
+export interface AdmissionSubmission {
+  id: string;
+  classId: string;
+  className: string;
+  status: "PendingReview" | "Approved" | "ChangesRequested" | "Rejected";
+  version: number;
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+}
+export interface ReviewDetail extends AdmissionSubmission {
+  reviewedBy?: string;
+  fee?: number;
+  applicant: {
+    fullName: string;
+    birthRegistration: string;
+    dateOfBirth: string;
+    guardianName: string;
+    phone: string;
+    address: string;
+    email: string;
+  };
+  documents: Document[];
+}
 export interface Document {
   sha256?: string;
   id: string;
@@ -48,7 +72,7 @@ export interface Overview {
   confirmed: number;
   activeHolds: number;
   revenue: number;
-  pendingDocuments: number;
+  pendingApplications: number;
   failedNotifications: number;
   refundRequired: number;
   integrations: { stripe: boolean; email: boolean; sms: boolean };

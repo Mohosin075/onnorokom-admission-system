@@ -19,6 +19,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<NotificationMessage> Notifications => Set<NotificationMessage>();
     public DbSet<PortalAudit> Audit => Set<PortalAudit>();
     public DbSet<AdmissionFee> Fees => Set<AdmissionFee>();
+    public DbSet<AdmissionApplication> Applications => Set<AdmissionApplication>();
+    public DbSet<ApplicationDocument> ApplicationDocuments => Set<ApplicationDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,7 +40,14 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AdmissionDocument>().HasOne<PortalUser>().WithMany().HasForeignKey(x => x.UserId);
         modelBuilder.Entity<AdmissionPayment>().HasOne<PortalUser>().WithMany().HasForeignKey(x => x.UserId);
         modelBuilder.Entity<NotificationMessage>().HasIndex(x => new { x.SentAt, x.NextAttemptAt });
-        modelBuilder.Entity<AdmissionDocument>().HasIndex(x => new { x.UserId, x.Kind }).IsUnique();
+        modelBuilder.Entity<AdmissionDocument>().HasIndex(x => new { x.UserId, x.Kind });
+        modelBuilder.Entity<AdmissionApplication>().HasIndex(x => new { x.UserId, x.ClassId }).IsUnique();
+        modelBuilder.Entity<AdmissionApplication>().HasIndex(x => new { x.Status, x.SubmittedAt });
+        modelBuilder.Entity<AdmissionApplication>().HasOne<PortalUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<AdmissionApplication>().HasOne<ClassRoom>().WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ApplicationDocument>().HasKey(x => new { x.ApplicationId, x.Kind });
+        modelBuilder.Entity<AdmissionApplication>().HasMany(x => x.Documents).WithOne().HasForeignKey(x => x.ApplicationId);
+        modelBuilder.Entity<ApplicationDocument>().HasOne<AdmissionDocument>().WithMany().HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

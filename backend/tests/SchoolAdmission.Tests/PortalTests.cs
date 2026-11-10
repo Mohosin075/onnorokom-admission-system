@@ -117,7 +117,7 @@ public class PortalTests(PostgresFixture database) : IClassFixture<PostgresFixtu
     }
 
     [PostgresFact]
-    public async Task DocumentReviewRejectsStaleContent_AndOnlyOwnerOrAdminCanDownload()
+    public async Task StandaloneDocumentApprovalIsDisabled_AndOnlyOwnerOrAdminCanDownload()
     {
         using var factory=database.CreateFactory();
         using var owner=factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { BaseAddress=new Uri("https://localhost") });
@@ -131,9 +131,8 @@ public class PortalTests(PostgresFixture database) : IClassFixture<PostgresFixtu
         (await owner.GetAsync($"/profile/documents/{id}/download")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await other.GetAsync($"/profile/documents/{id}/download")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         using var scope=factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var document=await db.Documents.SingleAsync(x=>x.Id==id);
-        (await admin.PutAsJsonAsync($"/admin/documents/{id}/review",new{status="Approved",sha256=new string('A',64)})).StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await admin.PutAsJsonAsync($"/admin/documents/{id}/review",new{status="Approved",sha256=document.Sha256})).StatusCode.Should().Be(HttpStatusCode.NoContent);
-        await db.Entry(document).ReloadAsync();document.ReviewStatus.Should().Be("Approved");
+        (await admin.PutAsJsonAsync($"/admin/documents/{id}/review",new{status="Approved",sha256=document.Sha256})).StatusCode.Should().Be(HttpStatusCode.Gone);
+        await db.Entry(document).ReloadAsync();document.ReviewStatus.Should().Be("Uploaded");
         System.IO.File.Delete(System.IO.Path.Combine("/app/uploads",document.StorageKey));
     }
 

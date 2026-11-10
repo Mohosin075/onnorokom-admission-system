@@ -30,7 +30,13 @@ import {
   type Payment,
   type Overview,
   type RecordRow,
+  type AdmissionSubmission,
 } from "./services/portal";
+import {
+  ApplicationDialog,
+  StudentSubmissions,
+  ReviewQueue,
+} from "./components/ApplicationFlow";
 import "./portal.css";
 
 const money = (n: number) =>
@@ -318,6 +324,8 @@ function Workspace({
   const [classes, setClasses] = useState<ClassRoom[]>([]),
     [fees, setFees] = useState<Record<string, number>>({}),
     [applications, setApplications] = useState<Application[]>([]),
+    [submissions, setSubmissions] = useState<AdmissionSubmission[]>([]),
+    [selectedClass, setSelectedClass] = useState<ClassRoom | null>(null),
     [documents, setDocuments] = useState<Document[]>([]),
     [payments, setPayments] = useState<Payment[]>([]),
     [overview, setOverview] = useState<Overview | null>(null),
@@ -331,14 +339,16 @@ function Workspace({
     setFees(Object.fromEntries(fee.map((x) => [x.classId, x.amount])));
     if (admin) setOverview(await request<Overview>("/admin/overview"));
     else {
-      const [a, d, p] = await Promise.all([
+      const [a, d, p, s] = await Promise.all([
         request<Application[]>("/me/holds"),
         request<Document[]>("/profile/documents"),
         request<Payment[]>("/payments/mine"),
+        request<AdmissionSubmission[]>("/applications/mine"),
       ]);
       setApplications(a);
       setDocuments(d);
       setPayments(p);
+      setSubmissions(s);
     }
   }, [admin]);
   useEffect(() => {
@@ -382,7 +392,7 @@ function Workspace({
     ? ([
         ["overview", "Overview", LayoutDashboard],
         ["classes", "Classes & fees", BookOpen],
-        ["review", "Document review", ShieldCheck],
+        ["review", "Application review", ShieldCheck],
         ["search", "Applications", Search],
         ["payments", "Payments", CreditCard],
         ["notifications", "Notifications", Bell],
@@ -397,7 +407,7 @@ function Workspace({
   const ready =
     !!account.birthRegistration &&
     ["BirthCertificate", "Photograph"].every((k) =>
-      documents.some((d) => d.kind === k && d.reviewStatus === "Approved"),
+      documents.some((d) => d.kind === k),
     );
   return (
     <div className="workspace">
@@ -478,8 +488,9 @@ function Workspace({
             <div>
               <strong>Get ready to apply</strong>
               <p>
-                Complete your profile and have your birth certificate and
-                photograph approved.
+                Complete your profile and upload your birth certificate and
+                photograph. Admissions reviews them after you submit an
+                application.
               </p>
             </div>
             <button
@@ -502,7 +513,7 @@ function Workspace({
                 ["Confirmed", overview.confirmed],
                 ["Active reservations", overview.activeHolds],
                 ["Collected fees", money(overview.revenue)],
-                ["Documents to review", overview.pendingDocuments],
+                ["Applications to review", overview.pendingApplications],
               ].map(([k, v]) => (
                 <article className="stat" key={k}>
                   <p>{k}</p>
@@ -639,26 +650,16 @@ function Workspace({
                       {!admin && (
                         <button
                           className="primary wide"
-                          disabled={
-                            busy ||
-                            !ready ||
-                            c.availableSeats < 1 ||
-                            !fees[c.id]
-                          }
+                          disabled={busy || !fees[c.id]}
                           onClick={() =>
-                            void act(async () => {
-                              await request(
-                                "/classes/" + c.id + "/holds",
-                                "POST",
-                                {},
-                              );
-                              setTab("applications");
-                            }, "Seat reserved. Complete Stripe payment before your hold expires.")
+                            submissions.some((a) => a.classId === c.id)
+                              ? setTab("applications")
+                              : setSelectedClass(c)
                           }
                         >
-                          {c.availableSeats < 1
-                            ? "Class full"
-                            : "Reserve a seat"}
+                          {submissions.some((a) => a.classId === c.id)
+                            ? "View application"
+                            : "Apply to this class"}
                           <ArrowRight size={16} />
                         </button>
                       )}
@@ -674,7 +675,8 @@ function Workspace({
             <h2>Applicant & guardian details</h2>
             <p className="muted">
               Use your official document details. Name, birth registration and
-              date of birth are locked once you upload documents or apply.
+              date of birth are locked while an application is under review or
+              approved. You can correct them if admissions requests changes.
             </p>
             <form
               className="profile-form"
@@ -755,8 +757,10 @@ function Workspace({
           <section className="panel">
             <h2>Your admission documents</h2>
             <p className="muted">
-              Readable PNG or JPEG images, up to 5 MB. Birth certificate and
-              photograph approval is required before applying.
+              Readable PNG or JPEG images, up to 5 MB. Upload your birth
+              certificate and photograph, then apply to a class. No prior
+              document approval is needed. New uploads are used on your next
+              submission; existing applications retain their submitted copies.
             </p>
             <form
               className="inline-form"
@@ -767,7 +771,7 @@ function Workspace({
                 void act(async () => {
                   await request("/profile/documents", "POST", v);
                   form.reset();
-                }, "Document submitted for review.");
+                }, "Document uploaded. Submit or resubmit an application to send it for review.");
               }}
             >
               <Field label="Document type">
@@ -816,215 +820,140 @@ function Workspace({
           </section>
         )}
         {tab === "applications" && (
-          <section className="panel">
-            <h2>Your applications</h2>
-            <p className="muted">
-              Reservations last 35 minutes. Open Stripe Checkout promptly; the
-              checkout payment window is 30 minutes.
-            </p>
-            {applications.length === 0 ? (
-              <Empty>You have not applied to a class yet.</Empty>
-            ) : (
-              <div className="record-list">
-                {applications.map((a) => {
-                  const left = Math.max(
-                      0,
-                      Math.ceil((new Date(a.expiresAt).getTime() - now) / 1000),
-                    ),
-                    status =
-                      a.status === "HELD" && !left ? "EXPIRED" : a.status,
-                    payment = payments.find((p) => p.holdId === a.holdId);
-                  return (
-                    <article className="application-record" key={a.holdId}>
-                      <div>
-                        <h3>{a.className}</h3>
-                        <p className="reference">{a.holdId}</p>
-                        <Status>{status}</Status>
-                        {payment && (
-                          <p>
-                            Payment: {payment.status} · {money(payment.amount)}
-                          </p>
-                        )}
-                      </div>
-                      <div className="record-actions">
-                        {status === "HELD" && (
-                          <>
-                            <strong className="countdown">
-                              {Math.floor(left / 60)
-                                .toString()
-                                .padStart(2, "0")}
-                              :{(left % 60).toString().padStart(2, "0")}
-                            </strong>
-                            <button
-                              className="primary"
-                              disabled={busy}
-                              onClick={() =>
-                                void act(async () => {
-                                  const result = await request<{ url: string }>(
-                                    "/payments/" + a.holdId + "/checkout",
-                                    "POST",
-                                    {},
-                                  );
-                                  window.location.assign(result.url);
-                                })
-                              }
-                            >
-                              <CreditCard size={16} />
-                              Pay with Stripe
-                            </button>
-                            <button
-                              className="secondary"
-                              disabled={busy}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    "Cancel this reservation and release the seat?",
-                                  )
-                                )
+          <>
+            <StudentSubmissions
+              submissions={submissions}
+              holds={applications}
+              classes={classes}
+              act={act}
+              busy={busy}
+              navigate={setTab}
+              now={now}
+            />
+            <section className="panel">
+              <h2>Seat reservations &amp; payments</h2>
+              <p className="muted">
+                Reservations last 35 minutes. Open Stripe Checkout promptly; the
+                checkout payment window is 30 minutes.
+              </p>
+              {applications.length === 0 ? (
+                <Empty>
+                  No seat reservations yet. Reserve an available seat after your
+                  application is approved.
+                </Empty>
+              ) : (
+                <div className="record-list">
+                  {applications.map((a) => {
+                    const left = Math.max(
+                        0,
+                        Math.ceil(
+                          (new Date(a.expiresAt).getTime() - now) / 1000,
+                        ),
+                      ),
+                      status =
+                        a.status === "HELD" && !left ? "EXPIRED" : a.status,
+                      payment = payments.find((p) => p.holdId === a.holdId);
+                    return (
+                      <article className="application-record" key={a.holdId}>
+                        <div>
+                          <h3>{a.className}</h3>
+                          <p className="reference">{a.holdId}</p>
+                          <Status>{status}</Status>
+                          {payment && (
+                            <p>
+                              Payment: {payment.status} ·{" "}
+                              {money(payment.amount)}
+                            </p>
+                          )}
+                        </div>
+                        <div className="record-actions">
+                          {status === "HELD" && (
+                            <>
+                              <strong className="countdown">
+                                {Math.floor(left / 60)
+                                  .toString()
+                                  .padStart(2, "0")}
+                                :{(left % 60).toString().padStart(2, "0")}
+                              </strong>
+                              <button
+                                className="primary"
+                                disabled={busy}
+                                onClick={() =>
                                   void act(async () => {
-                                    await request(
-                                      "/holds/" + a.holdId,
-                                      "DELETE",
+                                    const result = await request<{
+                                      url: string;
+                                    }>(
+                                      "/payments/" + a.holdId + "/checkout",
+                                      "POST",
+                                      {},
                                     );
-                                  }, "Reservation cancelled.");
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        )}
-                        {status === "CONFIRMED" &&
-                          ["receipt", "admission-card"].map((k) => (
-                            <a
-                              className="secondary"
-                              key={k}
-                              href={base + "/downloads/" + a.holdId + "/" + k}
-                            >
-                              <Download size={16} />
-                              {k === "receipt" ? "Receipt" : "Admission card"}
-                            </a>
-                          ))}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                                    window.location.assign(result.url);
+                                  })
+                                }
+                              >
+                                <CreditCard size={16} />
+                                Pay with Stripe
+                              </button>
+                              <button
+                                className="secondary"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "Cancel this reservation and release the seat?",
+                                    )
+                                  )
+                                    void act(async () => {
+                                      await request(
+                                        "/holds/" + a.holdId,
+                                        "DELETE",
+                                      );
+                                    }, "Reservation cancelled.");
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          )}
+                          {status === "CONFIRMED" &&
+                            ["receipt", "admission-card"].map((k) => (
+                              <a
+                                className="secondary"
+                                key={k}
+                                href={base + "/downloads/" + a.holdId + "/" + k}
+                              >
+                                <Download size={16} />
+                                {k === "receipt" ? "Receipt" : "Admission card"}
+                              </a>
+                            ))}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </>
         )}
-        {tab === "review" && <Review act={act} busy={busy} />}
+        {tab === "review" && <ReviewQueue act={act} busy={busy} />}
+        {selectedClass && (
+          <ApplicationDialog
+            account={account}
+            documents={documents}
+            classRoom={selectedClass}
+            fee={fees[selectedClass.id]}
+            busy={busy}
+            act={act}
+            close={() => setSelectedClass(null)}
+            navigate={setTab}
+          />
+        )}
         {tab === "search" && <SearchApplications classes={classes} />}
         {admin && ["payments", "notifications", "audit"].includes(tab) && (
           <AdminRecords key={tab} kind={tab} act={act} busy={busy} />
         )}
       </main>
     </div>
-  );
-}
-
-function Review({ act, busy }: { act: Act; busy: boolean }) {
-  const [items, setItems] = useState<Document[]>([]),
-    [status, setStatus] = useState("Pending"),
-    [page, setPage] = useState(1),
-    [total, setTotal] = useState(0),
-    [error, setError] = useState("");
-  const load = useCallback(async () => {
-    const data = await request<{ items: Document[]; total: number }>(
-      `/admin/documents?status=${status}&page=${page}`,
-    );
-    setItems(data.items);
-    setTotal(data.total);
-  }, [status, page]);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void load().catch((e) => setError(err(e)));
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [load]);
-  return (
-    <section className="panel">
-      <div className="section-title">
-        <h2>Document review queue</h2>
-        <select
-          aria-label="Review status"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-        >
-          {["Pending", "Approved", "Rejected"].map((x) => (
-            <option key={x}>{x}</option>
-          ))}
-        </select>
-      </div>
-      {error && (
-        <div role="alert" className="alert error">
-          {error}
-        </div>
-      )}
-      {items.length === 0 ? (
-        <Empty>No documents in this queue.</Empty>
-      ) : (
-        <div className="record-list">
-          {items.map((d) => (
-            <article key={d.id}>
-              <div>
-                <h3>{d.fullName || d.email}</h3>
-                <p>
-                  {d.kind} · {d.birthRegistration}
-                </p>
-                <a
-                  className="text-link"
-                  href={base + "/profile/documents/" + d.id + "/download"}
-                >
-                  Download document to inspect
-                </a>
-              </div>
-              <div className="record-actions">
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    void act(async () => {
-                      await request(
-                        "/admin/documents/" + d.id + "/review",
-                        "PUT",
-                        { status: "Approved", sha256: d.sha256 },
-                      );
-                      await load();
-                    }, "Document approved.")
-                  }
-                >
-                  Approve
-                </button>
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() => {
-                    const note = window.prompt(
-                      "Reason for rejecting this document:",
-                    );
-                    if (note?.trim())
-                      void act(async () => {
-                        await request(
-                          "/admin/documents/" + d.id + "/review",
-                          "PUT",
-                          { status: "Rejected", sha256: d.sha256, note },
-                        );
-                        await load();
-                      }, "Document rejected.");
-                  }}
-                >
-                  Reject
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-      <Pagination page={page} total={total} change={setPage} />
-    </section>
   );
 }
 
@@ -1104,9 +1033,11 @@ function SearchApplications({ classes }: { classes: ClassRoom[] }) {
           }}
         >
           <option value="">All statuses</option>
-          {["HELD", "CONFIRMED", "CANCELLED", "EXPIRED"].map((x) => (
-            <option key={x}>{x}</option>
-          ))}
+          {["PendingReview", "Approved", "ChangesRequested", "Rejected"].map(
+            (x) => (
+              <option key={x}>{x}</option>
+            ),
+          )}
         </select>
         <select
           aria-label="Class"

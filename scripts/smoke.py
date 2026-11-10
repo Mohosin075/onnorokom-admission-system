@@ -21,6 +21,6 @@ assert get("/")[0] == 200, "Frontend did not load"
 assert get("/api/health")[0] == 200, "Backend/database unhealthy"
 assert get("/api/classes")[0] == 200, "Class listing failed"
 assert get("/api/auth/csrf")[0] == 200, "Antiforgery session unavailable"
-for path in ("/api/me/holds", "/api/auth/me", "/api/admin/overview", "/api/profile/documents", "/api/payments/mine"):
+for path in ("/api/me/holds", "/api/applications/mine", "/api/admin/applications", "/api/auth/me", "/api/admin/overview", "/api/profile/documents", "/api/payments/mine"):
     assert get(path)[0] == 401, f"Anonymous access was not rejected: {path}"
 print("Read-only portal health and anonymous-access checks passed")

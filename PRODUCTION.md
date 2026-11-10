@@ -46,7 +46,7 @@ Back up `portal_data` (PostgreSQL), `portal_uploads` (private documents), and `p
 
 The outbox uses `FOR UPDATE SKIP LOCKED`, retries with exponential backoff and exposes failures. Provider acceptance is recorded as sent; inbox/SMS-device delivery is ultimately the provider's responsibility. SMTP can deliver a duplicate if the process stops after provider acceptance but before its database commit, so notification text must remain safe to repeat.
 
-Document upload permits PNG/JPEG signatures only, enforces size limits, stores random filenames outside the web root and serves authenticated attachment downloads with `nosniff`. Documents require human review. This is not an antivirus scanner or government birth-registry verification. If institutional policy requires malware scanning or content-disarm processing, provision it before accepting documents.
+Document upload permits PNG/JPEG signatures only, enforces size limits, stores random filenames outside the web root and serves authenticated image previews and attachment downloads with `nosniff`. Each upload creates an immutable version; a submitted application references the exact selected files and profile snapshot. Unsubmitted uploads do not enter the admin review queue. Review happens before reservation, without consuming seat capacity. Application decisions require the expected submission version, document acknowledgment for approval, and feedback for corrections/rejection. This is not an antivirus scanner or government birth-registry verification. If institutional policy requires malware scanning or content-disarm processing, provision it before accepting documents.
 
 ## Launch boundary
 

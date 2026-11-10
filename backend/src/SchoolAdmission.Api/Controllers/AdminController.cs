@@ -23,11 +23,11 @@ public class AdminController(ApplicationDbContext db, IClassService classes, ICo
         var now = DateTime.UtcNow;
         return Ok(new {
             students = await db.Users.CountAsync(x => x.Role == "Student", ct),
-            applications = await db.Holds.CountAsync(ct),
+            applications = await db.Applications.CountAsync(ct),
             confirmed = await db.Holds.CountAsync(x => x.Status == HoldStatus.CONFIRMED, ct),
             activeHolds = await db.Holds.CountAsync(x => x.Status == HoldStatus.HELD && x.ExpiresAtUtc > now, ct),
             revenue = await db.Payments.Where(x => x.Status == "Paid").SumAsync(x => (decimal?)x.Amount, ct) ?? 0,
-            pendingDocuments = await db.Documents.CountAsync(x => x.ReviewStatus == "Pending", ct),
+            pendingApplications = await db.Applications.CountAsync(x => x.Status == "PendingReview", ct),
             failedNotifications = await db.Notifications.CountAsync(x => x.SentAt == null && x.Attempts > 0, ct),
             refundRequired = await db.Payments.CountAsync(x => x.Status == "RefundRequired", ct),
             integrations = new { stripe = gateway.Configured, email = !string.IsNullOrWhiteSpace(config["Smtp:Host"]),
@@ -47,7 +47,7 @@ public class AdminController(ApplicationDbContext db, IClassService classes, ICo
         return Created("/classes/" + cls.Id, cls);
     }
 
-    [HttpGet("applications")]
+    [HttpGet("reservations")]
     public async Task<IActionResult> Applications([FromQuery] string? search, [FromQuery] string? status, [FromQuery] string? classId,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default)
     {
@@ -68,27 +68,8 @@ public class AdminController(ApplicationDbContext db, IClassService classes, ICo
     }
 
     [HttpGet("documents")]
-    public async Task<IActionResult> Documents([FromQuery] string status = "Pending", [FromQuery] int page = 1, CancellationToken ct = default)
-    {
-        var query = from d in db.Documents.AsNoTracking() join u in db.Users on d.UserId equals u.Id
-                    where d.ReviewStatus == status select new { d.Id, d.Kind, d.OriginalName, d.ReviewStatus, d.Sha256, d.CreatedAt, u.FullName, u.Email, u.BirthRegistration };
-        return Ok(new { total = await query.CountAsync(ct), items = await query.OrderBy(x => x.CreatedAt).Skip((Math.Max(1,page)-1)*25).Take(25).ToListAsync(ct) });
-    }
-
     [HttpPut("documents/{id}/review")]
-    public async Task<IActionResult> Review(string id, ReviewInput input, CancellationToken ct)
-    {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var doc = await db.Documents.FromSqlInterpolated($"SELECT * FROM \"Documents\" WHERE \"Id\"={id} FOR UPDATE").SingleOrDefaultAsync(ct); if (doc == null) return NotFound();
-        if (doc.Sha256 != input.Sha256) return Conflict(new { message = "The applicant replaced this document. Refresh the queue and inspect the new file before reviewing it." });
-        if (input.Status == "Rejected" && string.IsNullOrWhiteSpace(input.Note)) return BadRequest(new { message = "Explain why the document was rejected." });
-        var user = await db.Users.SingleAsync(x => x.Id == doc.UserId, ct);
-        doc.ReviewStatus = input.Status; doc.ReviewNote = input.Note?.Trim();
-        PortalSecurity.Audit(db, User.UserId(), "Document" + input.Status, id);
-        db.Notifications.Add(new NotificationMessage { UserId = user.Id, Recipient = user.Email, Subject = "Admission document reviewed", Body = $"Your {doc.Kind} is {input.Status}. {input.Note}" });
-        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return NoContent();
-    }
-
+    public IActionResult LegacyDocumentReview() => StatusCode(410, new { message = "Review the submitted application, applicant details and attached documents together at /admin/applications." });
     [HttpGet("notifications")]
     public async Task<IActionResult> Notifications(CancellationToken ct) => Ok(await db.Notifications.AsNoTracking().OrderByDescending(x => x.CreatedAt).Take(100)
         .Select(x => new { x.Id, x.Channel, x.Subject, x.Attempts, x.SentAt, x.LastError, x.CreatedAt }).ToListAsync(ct));

@@ -65,10 +65,18 @@ describe("authenticated admission portal", () => {
     expect(screen.getByText("Continue setup")).toBeVisible();
     expect(screen.queryByText("Classes & fees")).not.toBeInTheDocument();
   });
-  it("keeps reservation disabled until required documents are approved", async () => {
+  it("allows starting an application and explains missing uploads without requiring prior approval", async () => {
     vi.mocked(request).mockImplementation(async (path) => {
       if (path === "/auth/me")
-        return { ...user, birthRegistration: "20260000000000001" };
+        return {
+          ...user,
+          fullName: "Isolated applicant",
+          birthRegistration: "20260000000000001",
+          dateOfBirth: "2014-01-01",
+          guardianName: "Guardian",
+          phone: "01700000000",
+          address: "Isolated address",
+        };
       if (path === "/classes")
         return [
           {
@@ -86,8 +94,18 @@ describe("authenticated admission portal", () => {
     });
     render(<App />);
     expect(
-      await screen.findByRole("button", { name: "Reserve a seat" }),
+      await screen.findByRole("button", { name: "Apply to this class" }),
+    ).toBeEnabled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply to this class" }),
+    );
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "No payment or seat reservation starts at this step.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Submit application" }),
     ).toBeDisabled();
+    expect(screen.getByText(/Approval is not required yet/)).toBeVisible();
   });
   it("exposes management navigation only for an admin account", async () => {
     vi.mocked(request).mockImplementation(async (path) => {
@@ -99,7 +117,7 @@ describe("authenticated admission portal", () => {
           confirmed: 0,
           activeHolds: 0,
           revenue: 0,
-          pendingDocuments: 0,
+          pendingApplications: 0,
           failedNotifications: 0,
           refundRequired: 0,
           integrations: { stripe: false, email: false, sms: false },
@@ -109,7 +127,7 @@ describe("authenticated admission portal", () => {
     });
     render(<App />);
     expect(
-      await screen.findByRole("button", { name: "Document review" }),
+      await screen.findByRole("button", { name: "Application review" }),
     ).toBeVisible();
     await waitFor(() =>
       expect(screen.getByText("Service connections")).toBeVisible(),

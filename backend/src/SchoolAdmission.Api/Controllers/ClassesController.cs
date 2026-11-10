@@ -69,9 +69,8 @@ public class ClassesController : ControllerBase
         var user = await PortalSecurity.Current(db, User, cancellationToken);
         if (string.IsNullOrWhiteSpace(studentId) || string.IsNullOrWhiteSpace(user.FullName) || user.DateOfBirth == null)
             throw new ValidationException("Complete your admission profile before reserving a seat.");
-        if (!await db.Documents.AnyAsync(x => x.UserId == user.Id && x.Kind == "BirthCertificate" && x.ReviewStatus == "Approved", cancellationToken)
-            || !await db.Documents.AnyAsync(x => x.UserId == user.Id && x.Kind == "Photograph" && x.ReviewStatus == "Approved", cancellationToken))
-            throw new ValidationException("Upload your birth certificate and photograph, and wait for admissions to approve them before applying.");
+        if (!await db.Applications.AnyAsync(x => x.UserId == user.Id && x.ClassId == classId && x.Status == "Approved", cancellationToken))
+            throw new ValidationException("Submit an application for this class first. You can reserve a seat after admissions approves that application.");
         if (!await db.Fees.AnyAsync(x => x.ClassId == classId && x.Amount >= 10, cancellationToken))
             throw new ValidationException("Admissions are not open for this class yet.");
         var result = await _holdService.CreateHoldAsync(classId, studentId, cancellationToken);

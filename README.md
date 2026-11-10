@@ -21,8 +21,11 @@ Open http://localhost:3000. Swagger is available at http://localhost:8080/swagge
 - Register with your email and password; follow the emailed verification link, then sign in.
 - Save applicant name, birth registration, date of birth, guardian, mobile number and address.
 - Upload birth certificate and photograph as PNG/JPEG images, maximum 5 MB each. An academic record is optional.
-- Admissions staff download and inspect documents and approve or reject them with a reason. Document access is restricted to its owner and administrators. Identity fields are locked once documents are uploaded or an application exists.
-- Approved applicants reserve an available class seat. Default hold duration is 35 minutes; open Stripe Checkout within the first four minutes. Stripe Checkout itself expires 30 minutes after payment initiation.
+- Choose a class and submit the application with your profile and uploaded documents. Documents do **not** need prior approval. The application enters `PendingReview`; no seat is held and no payment timer runs during review.
+- Admissions staff open **Application review** to see the selected class, application reference, submitted applicant/guardian details and document previews together. Approval requires acknowledging inspection of both the birth certificate and photograph. **Request corrections** and **Reject** require written feedback.
+- A correction request appears in **My applications**. Edit the profile or upload replacement documents and resubmit. Resubmission increments the application version; a decision against an outdated version is rejected. New uploads are immutable versions and cannot silently replace a document in an already submitted application. Prior correction feedback remains visible during the next review.
+- Applicant identity is locked while an application is pending or approved, and after a reservation exists. A correction request unlocks identity editing if there is no other pending/approved application or reservation. Private document downloads and previews are restricted to the owner and administrators.
+- Approved applicants choose **Reserve & pay** to reserve an available class seat. Approval does not guarantee capacity: first-come, first-served allocation happens at reservation. Default hold duration is 35 minutes; open Stripe Checkout within the first four minutes. Stripe Checkout itself expires 30 minutes after payment initiation.
 - Pay through live Stripe Checkout. Only a signed webhook, followed by a server-to-server paid-status, currency, amount and transaction check, can confirm admission. A return URL never confirms payment.
 - Payment for an expired/cancelled hold triggers an idempotent refund rather than reallocating the seat. Refund failures remain visible for administrative retry.
 - Download the payment receipt and admission card after confirmation. Downloads are server-generated HTML documents that can be printed or saved as PDF through the browser. The admission card confirms admission; no exam schedule or examination admit card is invented.
@@ -34,7 +37,9 @@ Birth registration ownership is checked by admissions staff against uploaded doc
 
 The actual administrator configured through environment settings signs in through the same portal. The server enforces the Admin role for class creation, fees, document reviews, reports, application search, notification retries, refund retries and audit records. Student input or headers cannot grant administrative access or select another identity.
 
-The dashboard shows real applicant/application counts, active reservations, confirmed seats, collected BDT fees, document review backlog and provider configuration status. Application search supports name, email, birth registration, reference, class, status and pagination. Recent payments, notification delivery attempts and administrative audit history are available in separate tabs.
+The dashboard shows real applicant/application counts, active reservations, confirmed seats, collected BDT fees, application review backlog and provider configuration status. Application search supports name, email, birth registration, reference, class, review status and pagination. Recent payments, notification delivery attempts and administrative audit history are available in separate tabs. Standalone document approval has been retired; documents are reviewed in the context of their submitted application.
+
+Existing reservations and paid admissions remain intact after the workflow migration and are shown under **Seat reservations & payments**. Previously uploaded documents remain available for new submissions; the migration does not fabricate application decisions for historical reservations.
 
 ## Verification
 
