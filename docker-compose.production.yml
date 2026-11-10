@@ -2,10 +2,19 @@ services:
   backend:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      ApplicationMode: Portal
+      HOLD_DURATION_SECONDS: ${PORTAL_HOLD_DURATION_SECONDS:-2100}
       DemoAccounts__Enabled: "false"
       DemoAccounts__Password: ""
       Portal__PublicUrl: https://${PUBLIC_DOMAIN:?Set your real PUBLIC_DOMAIN}
       Portal__InstitutionName: ${INSTITUTION_NAME:?Set your real INSTITUTION_NAME}
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong production POSTGRES_PASSWORD}
+  frontend:
+    build:
+      args:
+        VITE_APP_MODE: portal
   gateway:
     image: caddy:2-alpine
     restart: unless-stopped

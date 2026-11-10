@@ -1,55 +1,24 @@
-# AI usage
+# AI assistance
 
-The earlier implementation documented use of Antigravity AI for scaffolding,
-architecture, database logic, frontend components and initial service tests. This
-review did not independently verify that tool's recorded model name or any previous
-claims of human corrections.
+Antigravity AI was recorded as assisting with the initial scaffolding, architecture and service implementation. That earlier tool/model attribution was not independently verified. OpenAI Codex assisted with subsequent source review, concurrency fixes, API/UI implementation, test design, Docker setup and documentation.
 
-OpenAI Codex was used for the subsequent requirement audit and fixes: transaction
-handling, reservation/confirmation/cancellation synchronization, conditional expiry,
-validation, migrations, frontend identity and request handling, tests, Docker setup,
-CI and documentation. The user requested these corrections after reviewing the audit.
+Later development added an authenticated portal with document review and Stripe payments. A review against the original PDF found that those requested product extensions had replaced the required assignment contract. Codex restored the no-login/header-identity/immediate-hold/simulated-payment workflow as the default, retained the portal in a separately selected mode, restored HTTP contract tests, and renamed the frontend directory to `frontend/`.
 
-## Errors found and corrected
+## Mistakes identified and corrected
 
-- The original InMemory concurrency test serialized calls with its own semaphore.
-  It could pass without testing production locking. It was replaced with concurrent
-  HTTP requests against real PostgreSQL, including two independent API hosts.
-- PostgreSQL automatic retries were enabled alongside direct explicit transactions.
-  The incompatible per-command retry configuration was removed.
-- Confirmation, cancellation and expiry could overwrite one another's status.
-  Class/hold locks and conditional expiry updates now coordinate these changes;
-  reads compute effective expiry without saving stale entities.
-- The original UI retained a previous student's selected application and a sticky
-  local expiry flag. Identity changes now clear selection; application components
-  are isolated by identity and hold, and stale asynchronous results are ignored.
-- During these fixes, integration-test configuration initially used the application
-  connection string instead of its disposable database. The test factory now
-  explicitly replaces DbContext options. No existing application database was changed.
-- The first frontend test dependency installation selected a jsdom version requiring
-  a newer Node release. It was replaced with jsdom 26.1.0 and the regression suite ran.
-- A real HTTP smoke run exposed Windows Event Log permission failures on warning
-  logs. Runtime logging now explicitly uses the console, and primary-key row-lock
-  queries no longer use an unnecessary unordered FirstOrDefault operation.
-- A second review found that polling could repeatedly invalidate slow responses,
-  and an old class submission could reset and close a newly opened form. Regression
-  tests reproduced both failures before fixes. Polls no longer overlap within a
-  view, and each dialog opening has isolated state and ignores results after closure.
-  Payment confirmation now updates status from its successful response directly.
+- The initial InMemory concurrency test serialized requests using a test-side semaphore. Real PostgreSQL tests and simultaneous HTTP requests now exercise the database locking itself.
+- Automatic per-command PostgreSQL retries conflicted with explicit transactions; the non-retrying transaction strategy was restored.
+- Confirmation, cancellation and expiry could overwrite one another. Class/hold locks, conditional expiry updates and read-side effective status now coordinate these changes.
+- Earlier frontend identity changes and slow/stale polling responses could retain another student's selection or lose newer state. Components are isolated by identity/hold, stale results are ignored, and polls within a view do not overlap.
+- An early integration-test configuration pointed at the application connection; test factories now explicitly replace DbContext options with uniquely named disposable databases.
+- The enhanced portal's authentication, CSRF, document approval and Stripe confirmation were incompatible with the PDF's exact eight-route contract. Startup now selects one controller surface and middleware flow per mode; default Assessment mode accepts the PDF header and JSON requests without account setup.
+- A mode-isolation test run showed that application configuration was applied too late to choose startup services. Test factories now set the mode through host configuration before Program creates the service collection.
+- Existing local `.env` requirements, a 35-minute hold default and a hardcoded frontend API build argument prevented a clean evaluator startup. Assessment Compose defaults are now self-contained, use a 600-second hold and forward the frontend URL override.
 
-## Validation and limits
+## Verification and limits
 
-Validation used .NET 8, PostgreSQL 18 and Node 24: 16 backend tests (including 10
-database integration tests), 10 frontend regression tests, a production frontend build
-and lint with warnings treated as failures. A local HTTP smoke run used two separate
-API processes and verified concurrency, API contracts and persistence after restart.
-The EF model also matched its migration snapshot.
+Validation commands are documented in README. The suite includes the assessment's HTTP JSON/status contracts, expired-hold worker behavior without admission endpoint calls, duplicate/ownership/idempotency cases, competing requests across independent hosts, and the optional portal's regression tests. Frontend tests cover identity restoration, timer expiry, simulated payment, slow/stale requests and dialog lifecycle.
 
-Docker was not available locally; Docker build, smoke and Compose restart checks are
-defined in CI and can be run using the commands in README.md. Local NuGet restore
-metadata retained a warning about unavailable vulnerability-service access; it did
-not prevent compilation or tests. Test results should not be interpreted as proof
-for arbitrary production traffic or unsynchronized server clocks.
-# Production portal extension
+Docker builds, PostgreSQL integration tests, frontend tests/build/lint, an isolated fresh startup without `.env`, cross-process HTTP contention and a saved-confirmed-admission restart check are used for verification. Test fixtures and HTTP acceptance data are confined to disposable test databases/stacks; the normal application data is preserved. Exact final results are reported in the task handoff and CI logs rather than freezing historical test counts here.
 
-The assessment flow was extended with account authentication, role-based administration, verified email, password recovery, applicant profiles, private document review, live-only Stripe Checkout and signed webhook verification, refund handling, a persistent notification outbox, administrative search/reporting and downloadable admission records. No real applicant information or payment credentials were supplied during implementation. Automated fixtures are limited to disposable test databases; the application database starts empty. Provider commissioning and real-domain deployment require institution-owned credentials and acceptance checks documented in PRODUCTION.md.
+Browser automation has been unavailable in this session, so visual browser acceptance is not claimed. Tests do not prove correctness for arbitrary traffic or unsynchronized server clocks. No real payment, email or SMS is needed or performed by the default Assessment flow.

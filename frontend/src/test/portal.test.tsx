@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import App from "../App";
+import App from "../PortalApp";
 import { request, type Account } from "../services/portal";
 
 vi.mock("../services/portal", () => ({ base: "/api", request: vi.fn() }));

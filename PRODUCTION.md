@@ -1,5 +1,7 @@
 # Production deployment and operations
 
+This document applies only to the separately selected **Portal** mode. Plain `docker compose up` runs the PDF's no-login, simulated-payment **Assessment** mode. The production overlay explicitly selects Portal for both backend and frontend and sets `PORTAL_HOLD_DURATION_SECONDS` (default 2100) independently of the assessment's 600-second default.
+
 ## Required real configuration
 
 Populate the ignored `.env` from `.env.example` using the institution's own values. Keep provider secrets in the deployment environment/secret manager and restrict access to that environment and Docker host. Never commit `.env`, upload data, database dumps or data-protection keys.
@@ -11,6 +13,7 @@ The production Compose overlay explicitly disables local demo account provisioni
 - `PUBLIC_URL`: `https://` plus that hostname. Used in emails and Stripe return URLs.
 - `TLS_EMAIL`: real contact email for TLS certificate issuance.
 - `POSTGRES_PASSWORD`: unique random database password. Changing this variable does not change an existing PostgreSQL user's password; rotate it in PostgreSQL too.
+- `APPLICATION_MODE=Portal` when using the base Compose file for a local portal preview. Set `HOLD_DURATION_SECONDS=2100` for that local portal preview and rebuild the frontend; the production overlay sets these values explicitly.
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`: real administrator. Bootstrap creates it only if that email is absent, and does not promote an existing student account. Remove the bootstrap password after initial provisioning and restart the backend.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`: authenticated TLS SMTP. Configure SPF/DKIM/DMARC with the provider. Registration remains unavailable without SMTP; verification cannot be bypassed by the UI.
 - `STRIPE_SECRET_KEY`: a live `sk_live_` key belonging to the institution's eligible Stripe merchant account. Stripe account eligibility, BDT charge support and fees must be confirmed with Stripe for that merchant; this application cannot provision a merchant account.

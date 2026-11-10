@@ -19,6 +19,8 @@ public class StudentIdHeaderOperationFilter : IOperationFilter
 
         if (requiresStudentId)
         {
+            var existing = operation.Parameters.FirstOrDefault(x => x.Name == "X-Student-Id" && x.In == ParameterLocation.Header);
+            if (existing != null) { existing.Required = true; return; }
             operation.Parameters.Add(new OpenApiParameter
             {
                 Name = "X-Student-Id",

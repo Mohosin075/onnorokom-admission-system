@@ -8,10 +8,15 @@ using SchoolAdmission.Infrastructure;
 using SchoolAdmission.Infrastructure.Persistence;
 using SchoolAdmission.Api.Portal;
 using Microsoft.AspNetCore.Antiforgery;
+using SchoolAdmission.Api.Assessment;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddPortal();
-if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+var mode = builder.Configuration["ApplicationMode"] ?? "Assessment";
+if (!mode.Equals("Assessment", StringComparison.OrdinalIgnoreCase) && !mode.Equals("Portal", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("ApplicationMode must be Assessment or Portal.");
+var assessment = mode.Equals("Assessment", StringComparison.OrdinalIgnoreCase);
+if (!assessment) builder.AddPortal();
+if (!assessment && !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
 {
     if (!Uri.TryCreate(builder.Configuration["Portal:PublicUrl"], UriKind.Absolute, out var publicUrl) || publicUrl.Scheme != "https")
         throw new InvalidOperationException("Production requires an HTTPS Portal:PublicUrl.");
@@ -30,6 +35,7 @@ if (string.IsNullOrEmpty(builder.Configuration["urls"]))
 
 // Add services to the container.
 builder.Services.AddControllers()
+    .ConfigureApplicationPartManager(manager => manager.FeatureProviders.Add(new ModeControllerFeatureProvider(assessment)))
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -45,7 +51,7 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "First-Come, First-Served School Admission System API with high-concurrency seat reservation."
     });
-
+    if (assessment) c.OperationFilter<StudentIdHeaderOperationFilter>();
 });
 
 // CORS: allow frontend to interact with backend
@@ -53,7 +59,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("Portal", policy =>
     {
-        policy.WithOrigins(builder.Configuration["Portal:PublicUrl"] ?? "http://localhost:3000")
+        if (assessment) policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        else policy.WithOrigins(builder.Configuration["Portal:PublicUrl"] ?? "http://localhost:3000")
               .AllowCredentials()
               .AllowAnyHeader()
               .AllowAnyMethod();
@@ -65,7 +72,7 @@ builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
-app.UseForwardedHeaders();
+if (!assessment) app.UseForwardedHeaders();
 
 // Ensure Database schema is created on startup
 using (var scope = app.Services.CreateScope())
@@ -106,7 +113,7 @@ using (var scope = app.Services.CreateScope())
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Enable Swagger in all environments for ease of testing by evaluators
-if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing")) {
+if (assessment || app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing")) {
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -116,15 +123,17 @@ app.UseSwaggerUI(c =>
 }
 
 app.UseCors("Portal");
+if (!assessment) {
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
+}
 app.Use(async (context, next) => {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "same-origin";
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers.CacheControl = "no-store";
-    if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
+    if (!assessment && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
         && !HttpMethods.IsOptions(context.Request.Method) && context.Request.Path != "/payments/stripe/webhook")
     {
         try { await context.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(context); }
@@ -132,11 +141,13 @@ app.Use(async (context, next) => {
     }
     await next();
 });
+if (!assessment) {
 app.MapGet("/auth/csrf", (HttpContext ctx, IAntiforgery antiforgery) => Results.Ok(new { token = antiforgery.GetAndStoreTokens(ctx).RequestToken }));
 app.MapGet("/portal", (IConfiguration config) => Results.Ok(new { institutionName = config["Portal:InstitutionName"], currency = "BDT" }));
 app.MapGet("/class-fees", async (ApplicationDbContext db, CancellationToken ct) => Results.Ok(await db.Fees.AsNoTracking().ToListAsync(ct)));
 await PortalSetup.BootstrapAdmin(app.Services, app.Configuration);
 await PortalSetup.BootstrapDemo(app.Services, app.Configuration, app.Environment);
+}
 
 app.MapControllers();
 app.MapGet("/health", async (ApplicationDbContext db, CancellationToken cancellationToken) =>

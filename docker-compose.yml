@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: admission_portal
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - portal_data:/var/lib/postgresql/data
     healthcheck:
@@ -35,8 +35,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=admission_portal;Username=postgres;Password=${POSTGRES_PASSWORD};
-      - HOLD_DURATION_SECONDS=${HOLD_DURATION_SECONDS:-2100}
+      - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection:-Host=db;Port=5432;Database=admission_portal;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres};}
+      - ApplicationMode=${APPLICATION_MODE:-Assessment}
+      - HOLD_DURATION_SECONDS=${HOLD_DURATION_SECONDS:-600}
       - Portal__PublicUrl=${PUBLIC_URL:-http://localhost:3000}
       - Portal__InstitutionName=${INSTITUTION_NAME:-}
       - Bootstrap__AdminEmail=${ADMIN_EMAIL:-}
@@ -63,10 +64,11 @@ services:
 
   frontend:
     build:
-      context: ./front-end
+      context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: /api
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_APP_MODE: ${APPLICATION_MODE:-Assessment}
     container_name: school_admission_frontend
     networks:
       default:
@@ -87,12 +89,12 @@ services:
       db:
         condition: service_healthy
     environment:
-      TEST_POSTGRES_CONNECTION: Host=db;Port=5432;Database=postgres;Username=postgres;Password=${POSTGRES_PASSWORD}
+      TEST_POSTGRES_CONNECTION: Host=db;Port=5432;Database=postgres;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}
 
   frontend-tests:
     profiles: ["test"]
     build:
-      context: ./front-end
+      context: ./frontend
       target: test
 
 volumes:

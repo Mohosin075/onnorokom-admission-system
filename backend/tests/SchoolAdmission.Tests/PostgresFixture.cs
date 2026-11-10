@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using SchoolAdmission.Application.Common;
 using SchoolAdmission.Infrastructure.Persistence;
@@ -42,6 +43,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     }
 
     public AdmissionFactory CreateFactory(int duration = 600) => new(ConnectionString, duration);
+    public AdmissionFactory CreateAssessmentFactory(int duration = 600) => new(ConnectionString, duration, "Assessment");
 
     public async Task DisposeAsync()
     {
@@ -53,14 +55,22 @@ public sealed class PostgresFixture : IAsyncLifetime
     }
 }
 
-public sealed class AdmissionFactory(string connectionString, int duration) : WebApplicationFactory<Program>
+public sealed class AdmissionFactory(string connectionString, int duration, string mode = "Portal") : WebApplicationFactory<Program>
 {
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        // Mode selects startup services, so it must be available before Program creates its service collection.
+        builder.ConfigureHostConfiguration(configuration => configuration.AddInMemoryCollection(
+            new Dictionary<string, string?> { ["ApplicationMode"] = mode }));
+        return base.CreateHost(builder);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.ConfigureLogging(logging => logging.ClearProviders().AddConsole());
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-            new Dictionary<string, string?> { ["ConnectionStrings:DefaultConnection"] = connectionString }));
+            new Dictionary<string, string?> { ["ConnectionStrings:DefaultConnection"] = connectionString, ["ApplicationMode"] = mode }));
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();

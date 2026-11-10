@@ -1,20 +1,26 @@
-import axios, { type AxiosError } from 'axios';
-import type { ClassItem, CreateClassPayload, CreateClassResponse, HoldItem, ConfirmHoldResponse } from '../types';
+import axios, { type AxiosError } from "axios";
+import type {
+  ClassItem,
+  CreateClassPayload,
+  CreateClassResponse,
+  HoldItem,
+  ConfirmHoldResponse,
+} from "../types";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 const apiClient = axios.create({
   timeout: 10000,
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
 export const api = {
   // Classes
   async getClasses(): Promise<ClassItem[]> {
-    const response = await apiClient.get<ClassItem[]>('/classes');
+    const response = await apiClient.get<ClassItem[]>("/classes");
     return response.data;
   },
 
@@ -24,7 +30,10 @@ export const api = {
   },
 
   async createClass(payload: CreateClassPayload): Promise<CreateClassResponse> {
-    const response = await apiClient.post<CreateClassResponse>('/classes', payload);
+    const response = await apiClient.post<CreateClassResponse>(
+      "/classes",
+      payload,
+    );
     return response.data;
   },
 
@@ -35,9 +44,9 @@ export const api = {
       {},
       {
         headers: {
-          'X-Student-Id': studentId,
+          "X-Student-Id": studentId,
         },
-      }
+      },
     );
     return response.data;
   },
@@ -47,15 +56,18 @@ export const api = {
     return response.data;
   },
 
-  async confirmHold(holdId: string, studentId: string): Promise<ConfirmHoldResponse> {
+  async confirmHold(
+    holdId: string,
+    studentId: string,
+  ): Promise<ConfirmHoldResponse> {
     const response = await apiClient.post<ConfirmHoldResponse>(
       `/holds/${holdId}/confirm`,
       {},
       {
         headers: {
-          'X-Student-Id': studentId,
+          "X-Student-Id": studentId,
         },
-      }
+      },
     );
     return response.data;
   },
@@ -63,16 +75,16 @@ export const api = {
   async cancelHold(holdId: string, studentId: string): Promise<void> {
     await apiClient.delete(`/holds/${holdId}`, {
       headers: {
-        'X-Student-Id': studentId,
+        "X-Student-Id": studentId,
       },
     });
   },
 
   // Student specific holds
   async getMyHolds(studentId: string): Promise<HoldItem[]> {
-    const response = await apiClient.get<HoldItem[]>('/me/holds', {
+    const response = await apiClient.get<HoldItem[]>("/me/holds", {
       headers: {
-        'X-Student-Id': studentId,
+        "X-Student-Id": studentId,
       },
     });
     return response.data;
@@ -81,7 +93,11 @@ export const api = {
 
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ message?: string; error?: string; title?: string }>;
+    const axiosError = error as AxiosError<{
+      message?: string;
+      error?: string;
+      title?: string;
+    }>;
     if (axiosError.response?.data?.message) {
       return axiosError.response.data.message;
     }
@@ -92,20 +108,20 @@ export function getErrorMessage(error: unknown): string {
       return axiosError.response.data.title;
     }
     if (axiosError.response?.status === 409) {
-      return 'No available seats remaining or application limit reached.';
+      return "No available seats remaining or application limit reached.";
     }
     if (axiosError.response?.status === 404) {
-      return 'Requested resource not found.';
+      return "Requested resource not found.";
     }
-    if (axiosError.code === 'ERR_NETWORK') {
-      return 'Cannot connect to the admission server. Please try again shortly.';
+    if (axiosError.code === "ERR_NETWORK") {
+      return "Cannot connect to the admission server. Please try again shortly.";
     }
-    if (axiosError.code === 'ECONNABORTED') {
-      return 'The admission server took too long to respond. Please try again.';
+    if (axiosError.code === "ECONNABORTED") {
+      return "The admission server took too long to respond. Please try again.";
     }
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return 'An unexpected error occurred.';
+  return "An unexpected error occurred.";
 }
