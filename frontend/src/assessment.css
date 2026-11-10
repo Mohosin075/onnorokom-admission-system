@@ -1,4 +1,4 @@
-﻿.admission-shell {
+.admission-shell {
   --ink: #17372f;
   --muted: #6c7d77;
   --line: #e2e9e5;
@@ -22,6 +22,26 @@
   outline: 3px solid #8ab8a1;
   outline-offset: 4px;
 }
+.admission-shell input,
+.admission-shell select,
+.admission-shell textarea {
+  outline: none;
+}
+.admission-shell input:focus,
+.admission-shell input:focus-visible,
+.admission-shell select:focus,
+.admission-shell select:focus-visible,
+.admission-shell textarea:focus,
+.admission-shell textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+.admission-shell [role="dialog"] input:focus,
+.admission-shell [role="dialog"] input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: var(--green) !important;
+}
 .admission-shell button:disabled {
   cursor: not-allowed;
 }
@@ -30,188 +50,243 @@
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 40;
-  background: #fff;
-  border-right: 1px solid var(--line);
-  padding: 28px 16px;
+  background: #ffffff;
+  border-right: 1px solid #e5ebe7;
+  padding: 24px 14px;
   display: flex;
   flex-direction: column;
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02);
 }
 .admission-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   text-decoration: none;
   color: var(--ink);
-  font-size: 15px;
-  font-weight: 750;
-  letter-spacing: -0.5px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  transition: background-color 0.15s ease;
+}
+.admission-brand:hover {
+  background: #f4f8f5;
 }
 .admission-brand-icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 11px;
   color: white;
-  background: var(--green);
+  background: linear-gradient(135deg, #1b6846 0%, #2f835b 100%);
+  box-shadow: 0 3px 10px rgba(27, 104, 70, 0.22);
   flex-shrink: 0;
+}
+.admission-sidebar .admission-brand-text {
+  min-width: 0;
+}
+.admission-sidebar .admission-brand strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 750;
+  color: #173224;
+  letter-spacing: -0.4px;
+  line-height: 1.25;
 }
 .admission-sidebar .admission-brand small {
   display: block;
-  color: var(--muted);
-  margin-top: 3px;
-  font-size: 12px;
-  font-weight: 400;
+  color: #587163;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 500;
   letter-spacing: 0;
 }
+.admission-sidebar-divider {
+  height: 1px;
+  background: #edf3ee;
+  margin: 18px 4px 4px;
+}
 .admission-nav-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #65786c;
-  letter-spacing: 1.2px;
-  margin: 30px 10px 10px;
+  font-size: 10px;
+  font-weight: 750;
+  color: #7b8e83;
+  letter-spacing: 1.4px;
+  margin: 16px 8px 8px;
+  text-transform: uppercase;
 }
 .admission-workspaces {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .admission-workspaces button {
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  position: relative;
+  display: flex;
   align-items: center;
   text-align: left;
-  gap: 10px;
+  gap: 11px;
   border-radius: 10px;
-  padding: 12px 10px;
-  color: #6c7d77;
+  padding: 10px 11px;
+  color: #55695f;
   background: transparent;
   border: 1px solid transparent;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 650;
   width: 100%;
-  line-height: 1.45;
-}
-.admission-workspaces button > span {
-  min-width: 0;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 .admission-workspaces button > svg {
   flex-shrink: 0;
+  color: #6a8275;
+  transition: color 0.15s ease;
+}
+.admission-workspaces button > span {
+  min-width: 0;
+  flex: 1;
 }
 .admission-sidebar .admission-workspaces button small {
   display: block;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 400;
-  margin-top: 3px;
-  opacity: 0.85;
-  line-height: 1.5;
-}
-.admission-workspaces button[aria-pressed="true"] {
-  color: var(--green);
-  background: #eaf4ee;
-  border-color: #d7e8dc;
+  color: #73887c;
+  margin-top: 2px;
+  line-height: 1.4;
 }
 .admission-workspaces button:hover {
-  background: #f1f5f1;
+  background: #f4f8f5;
+  color: #194a32;
 }
-.admission-nav-dot {
-  margin-left: auto;
-  width: 6px;
-  height: 6px;
-  background: var(--green);
-  border-radius: 50%;
+.admission-workspaces button:hover > svg {
+  color: #194a32;
+}
+.admission-workspaces button[aria-pressed="true"],
+.admission-workspaces button.is-active {
+  color: #145437;
+  background: #eef7f1;
+  border-color: #d1e7da;
+  box-shadow: 0 1px 3px rgba(20, 84, 55, 0.05);
+}
+.admission-workspaces button[aria-pressed="true"] > svg,
+.admission-workspaces button.is-active > svg {
+  color: #1b6846;
+}
+.admission-workspaces button[aria-pressed="true"] small,
+.admission-workspaces button.is-active small {
+  color: #3b6b52;
 }
 .admission-sidebar-note {
   position: relative;
-  margin: 28px 0 24px;
-  background: #f5f8f4;
-  border: 1px solid #e0e9df;
-  border-radius: 12px;
-  padding: 16px;
-}
-.admission-eyebrow {
-  display: block;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 1.6px;
-  color: var(--muted);
-}
-.admission-sidebar .admission-sidebar-note p {
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.65;
-  margin: 10px 0 8px;
-  color: #53685d;
+  margin: 22px 0 16px;
+  background: linear-gradient(145deg, #f3f8f5 0%, #eaf4ee 100%);
+  border: 1px solid #d4e7dc;
+  border-radius: 13px;
+  padding: 15px 13px;
+  box-shadow: 0 2px 6px rgba(24, 82, 54, 0.03);
 }
 .admission-sidebar-help-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  color: #285b43;
+  margin-bottom: 8px;
 }
-.admission-sidebar-help-heading svg {
+.admission-sidebar-help-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: #ddede2;
+  color: #1b6846;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 .admission-sidebar-help-heading strong {
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.5;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #15452e;
+  line-height: 1.3;
+}
+.admission-sidebar .admission-sidebar-note p {
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+  color: #436352;
 }
 .admission-sidebar-help-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 12.5px;
   font-weight: 650;
-  color: #176a50;
-  text-align: left;
+  color: #ffffff;
+  background: #1b6846;
+  border: 1px solid #145437;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(27, 104, 70, 0.18);
+  transition: all 0.15s ease;
+  text-decoration: none;
 }
 .admission-sidebar-help-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  background: #155437;
+  box-shadow: 0 3px 8px rgba(27, 104, 70, 0.25);
+  transform: translateY(-1px);
 }
-.admission-sidebar-note small {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.8;
-  display: block;
-}
-.admission-sidebar-note > svg {
-  margin-top: 18px;
-  color: #899873;
+.admission-sidebar-help-link:active {
+  transform: translateY(0);
 }
 .admission-sidebar-footer {
   margin-top: auto;
-  padding: 18px 8px 0;
-  border-top: 1px solid #e2e9e5;
-  font-size: 11px;
-  color: var(--muted);
+  padding: 16px 4px 0;
+  border-top: 1px solid #edf2ee;
+  font-size: 11.5px;
+  color: #6c8074;
 }
 .admission-sidebar-status {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  line-height: 1.5;
-}
-.admission-sidebar-status .admission-live-dot {
-  margin-right: 0;
-}
-.admission-sidebar .admission-sidebar-footer small {
-  display: block;
-  font-size: 12px;
-  padding: 7px 0 0 14px;
-  color: #63786d;
+  font-weight: 600;
+  color: #2b5741;
+  line-height: 1.4;
 }
 .admission-live-dot {
+  position: relative;
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #388663;
-  margin-right: 7px;
+  background: #2b9361;
   flex-shrink: 0;
+}
+.admission-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: rgba(43, 147, 97, 0.35);
+  animation: live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes live-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.admission-sidebar-session {
+  display: block;
+  font-size: 11px;
+  padding: 4px 0 0 15px;
+  color: #7d9185;
 }
 .admission-topbar {
   margin-left: 248px;
@@ -1913,6 +1988,29 @@
 .admission-review-details dd {
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+.admission-payment-method {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admission-payment-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #e8f5e9;
+  color: #1b5e20;
+  border: 1px solid #c8e6c9;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.admission-payment-channels {
+  color: #4b6354;
+  font-size: 13.5px;
+  font-weight: 500;
 }
 .admission-wizard-identity {
   font-size: 14px;

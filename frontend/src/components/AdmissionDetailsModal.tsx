@@ -98,7 +98,7 @@ export function AdmissionDetailsModal({
             <ShieldCheck size={18} aria-hidden="true" />
             <span>
               {t(
-                "This admission used a simulated payment. No money was charged.",
+                "Payment completed securely. Your admission has been confirmed.",
               )}
             </span>
           </p>

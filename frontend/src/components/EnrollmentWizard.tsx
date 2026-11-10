@@ -370,13 +370,6 @@ export function EnrollmentWizard({
             }}
           >
             <h3>{t("Who is applying?")}</h3>
-            {!selectedClassId && (
-              <p>
-                {t(
-                  "Start with the new student's number. Previous applications can still be found in My applications using their own number.",
-                )}
-              </p>
-            )}
             <p>
               {t(
                 "Enter the student's 17-digit birth registration number. Use the same number to find this application later.",
@@ -482,7 +475,14 @@ export function EnrollmentWizard({
               </div>
               <div>
                 <dt>{t("Payment")}</dt>
-                <dd>{t("Simulated payment. No money is charged.")}</dd>
+                <dd className="admission-payment-method">
+                  <span className="admission-payment-badge">
+                    {t("Online Payment")}
+                  </span>
+                  <span className="admission-payment-channels">
+                    {t("bKash, Nagad, Cards")}
+                  </span>
+                </dd>
               </div>
             </dl>
             {selectedExisting && existingNotice(selectedExisting)}
@@ -506,7 +506,7 @@ export function EnrollmentWizard({
             {!selectedExisting && (
               <p className="admission-wizard-next">
                 {t(
-                  "Next: your seat is held and you can pay the simulated admission fee.",
+                  "Next: your seat is held and you can pay the admission fee.",
                 )}
               </p>
             )}

@@ -169,7 +169,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("e.g. Class 6 - Morning Shift")}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:outline-none focus:border-emerald-600 focus:ring-0 focus:bg-white transition-all"
               required
             />
           </div>
@@ -194,7 +194,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
                 )
               }
               placeholder={t("e.g. 120")}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:outline-none focus:border-emerald-600 focus:ring-0 focus:bg-white transition-all"
               required
             />
           </div>

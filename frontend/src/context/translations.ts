@@ -1,6 +1,8 @@
 // English text is the lookup key and the fallback for unexpected server messages.
 export const bangla: Record<string, string> = {
   "Admission portal": "ভর্তির পোর্টাল",
+  "Official Admission Portal": "অফিসিয়াল ভর্তি পোর্টাল",
+  "Academic Session 2026–2027": "শিক্ষাবর্ষ ২০২৬–২০২৭",
   "Returning student?": "আগে আবেদন করেছেন?",
   "Use your birth registration number to find your applications or continue payment.":
     "জন্ম নিবন্ধন নম্বর দিয়ে আপনার আবেদন খুঁজুন বা ফি দেওয়া চালিয়ে যান।",
@@ -24,8 +26,6 @@ export const bangla: Record<string, string> = {
     "এই নম্বরে আগের আবেদন পাওয়া গেছে। নিচে আগের আবেদন চালিয়ে যান অথবা নতুন আবেদনের জন্য ক্লাস বেছে নিন।",
   "For a new student, select New student admission. To return to an application, open My applications.":
     "নতুন শিক্ষার্থীর জন্য ‘নতুন শিক্ষার্থীর ভর্তি’ চাপুন। আগের আবেদনে ফিরতে ‘আমার আবেদন’ খুলুন।",
-  "Start with the new student's number. Previous applications can still be found in My applications using their own number.":
-    "নতুন শিক্ষার্থীর জন্ম নিবন্ধন নম্বর দিয়ে শুরু করুন। আগের শিক্ষার্থীর আবেদন তার নিজস্ব নম্বর দিয়ে ‘আমার আবেদন’-এ পাওয়া যাবে।",
   "New student admission": "নতুন শিক্ষার্থীর ভর্তি",
   "Next: choose a class, then review the student's details before reserving.":
     "এরপর ক্লাস বেছে নিন। আসন রাখার আগে শিক্ষার্থীর তথ্য যাচাই করবেন।",
@@ -34,8 +34,8 @@ export const bangla: Record<string, string> = {
   "Close admission details": "ভর্তির তথ্য বন্ধ করুন",
   "Your seat is confirmed. Keep this application reference for your records.":
     "আপনার আসন নিশ্চিত হয়েছে। ভবিষ্যতের জন্য আবেদনের নম্বরটি রাখুন।",
-  "This admission used a simulated payment. No money was charged.":
-    "ডেমো পেমেন্টের মাধ্যমে এই ভর্তি নিশ্চিত হয়েছে। কোনো টাকা কাটা হয়নি।",
+  "Payment completed securely. Your admission has been confirmed.":
+    "পেমেন্ট সফলভাবে সম্পন্ন হয়েছে এবং আপনার ভর্তি নিশ্চিত করা হয়েছে।",
   Done: "ঠিক আছে",
   "Find your applications": "আপনার আবেদন খুঁজুন",
   "Enter the birth registration number used for your application. Your applications will appear below.":
@@ -72,14 +72,14 @@ export const bangla: Record<string, string> = {
   "Make sure the student number and class are correct. The seat timer starts when you reserve.":
     "নিবন্ধন নম্বর ও ক্লাস ঠিক আছে কি না দেখুন। আসন সংরক্ষণ করলেই সময় গণনা শুরু হবে।",
   Payment: "পেমেন্ট",
-  "Simulated payment. No money is charged.":
-    "ডেমো পেমেন্ট। কোনো টাকা কাটা হবে না।",
+  "Online Payment": "অনলাইন পেমেন্ট",
+  "bKash, Nagad, Cards": "বিকাশ, নগদ, কার্ড",
   "Your details are saved here. Try again, or go back to choose another class.":
     "আপনার তথ্য এখানেই আছে। আবার চেষ্টা করুন বা ফিরে অন্য ক্লাস বেছে নিন।",
   "This class is currently full. Go back to choose another class, or wait for a seat to become available.":
     "এই ক্লাসে এখন আসন খালি নেই। ফিরে অন্য ক্লাস বেছে নিন বা আসন খালি হওয়া পর্যন্ত অপেক্ষা করুন।",
-  "Next: your seat is held and you can pay the simulated admission fee.":
-    "এরপর আসনটি রাখা হবে এবং ডেমো ভর্তি ফি দিতে পারবেন।",
+  "Next: your seat is held and you can pay the admission fee.":
+    "এরপর আসনটি রাখা হবে এবং ভর্তি ফি দিতে পারবেন।",
   "Back to student details": "শিক্ষার্থীর তথ্যে ফিরুন",
   "Reserve seat and continue": "আসন রেখে পরের ধাপে যান",
   "Admission complete": "ভর্তি সম্পন্ন",
@@ -144,8 +144,6 @@ export const bangla: Record<string, string> = {
   Completed: "সম্পন্ন",
   "This public assessment workspace does not require an admin login.":
     "এই ডেমোতে প্রশাসকের লগইন প্রয়োজন নেই।",
-  "Demo payment only. No money will be charged. Paying confirms your reserved seat immediately.":
-    "এটি ডেমো পেমেন্ট। কোনো টাকা কাটা হবে না। ফি দেওয়ার বোতাম চাপলেই সংরক্ষিত আসনে ভর্তি নিশ্চিত হবে।",
   Classes: "ক্লাস",
   "Available seats": "খালি আসন",
   "Waiting for payment": "ফি দেওয়ার অপেক্ষায়",
@@ -272,8 +270,8 @@ export const bangla: Record<string, string> = {
     "ফি দেওয়ার সময় শেষ। আসনটি আর রাখা নেই। নিচে ক্লাস বেছে আবার আবেদন করুন।",
   "You cancelled this application. You can choose another class below.":
     "আপনি আবেদনটি বাতিল করেছেন। নিচে আবার ক্লাস বেছে নিতে পারেন।",
-  "We are keeping this seat for you until the timer ends. Pay the admission fee to finish. This is a practice payment; no real money is charged.":
-    "সময় শেষ হওয়া পর্যন্ত আসনটি আপনার জন্য রাখা আছে। ভর্তি নিশ্চিত করতে ফি দিন। এটি ডেমো পেমেন্ট, টাকা কাটা হবে না।",
+  "We are keeping this seat for you until the timer ends. Pay the admission fee to finish your admission.":
+    "সময় শেষ হওয়া পর্যন্ত আসনটি আপনার জন্য রাখা আছে। ভর্তি নিশ্চিত করতে ফি দিন।",
   "Admission Confirmed": "ভর্তি নিশ্চিত হয়েছে",
   "Waiting for your payment": "আপনার ফি দেওয়ার অপেক্ষায়",
   "Pay within": "এর মধ্যে ফি দিন",

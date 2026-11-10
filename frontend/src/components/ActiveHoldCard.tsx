@@ -238,7 +238,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
                       "You cancelled this application. You can choose another class below.",
                     )
                   : t(
-                      "We are keeping this seat for you until the timer ends. Pay the admission fee to finish. This is a practice payment; no real money is charged.",
+                      "We are keeping this seat for you until the timer ends. Pay the admission fee to finish your admission.",
                     )}
           </p>
 

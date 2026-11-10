@@ -5,7 +5,7 @@ import {
   LayoutDashboard,
   Plus,
   UserPlus,
-  CircleHelp,
+  Search,
   ArrowRight,
 } from "lucide-react";
 interface NavbarProps {
@@ -33,21 +33,25 @@ export function Navbar({
           aria-label={t("School admissions home")}
         >
           <span className="admission-brand-icon">
-            <GraduationCap size={25} />
+            <GraduationCap size={23} />
           </span>
-          <span>
-            {t("School admissions")}
-            <small>{t("Admission portal")}</small>
+          <span className="admission-brand-text">
+            <strong>{t("School admissions")}</strong>
+            <small>{t("Official Admission Portal")}</small>
           </span>
         </a>
+
+        <div className="admission-sidebar-divider" />
+
         <p className="admission-nav-label">{t("MENU")}</p>
         <nav aria-label={t("Workspace")} className="admission-workspaces">
           <button
             aria-label={t("Student admissions")}
             aria-pressed={workspace === "student"}
             onClick={() => onWorkspaceChange("student")}
+            className={workspace === "student" ? "is-active" : ""}
           >
-            <BookOpen size={19} />
+            <BookOpen size={18} />
             <span>
               {t("Student admissions")}
               <small>{t("Apply or check your application")}</small>
@@ -57,17 +61,21 @@ export function Navbar({
             aria-label={t("Admin workspace")}
             aria-pressed={workspace === "admin"}
             onClick={() => onWorkspaceChange("admin")}
+            className={workspace === "admin" ? "is-active" : ""}
           >
-            <LayoutDashboard size={19} />
+            <LayoutDashboard size={18} />
             <span>
               {t("Admin workspace")}
               <small>{t("Add classes and check seats")}</small>
             </span>
           </button>
         </nav>
+
         <div className="admission-sidebar-note">
           <div className="admission-sidebar-help-heading">
-            <CircleHelp size={18} />
+            <span className="admission-sidebar-help-icon">
+              <Search size={15} />
+            </span>
             <strong>{t("Returning student?")}</strong>
           </div>
           <p>
@@ -76,19 +84,23 @@ export function Navbar({
             )}
           </p>
           <button
+            type="button"
             className="admission-sidebar-help-link"
             onClick={onFindApplications}
           >
-            {t("Find my applications")}
-            <ArrowRight size={16} />
+            <span>{t("Find my applications")}</span>
+            <ArrowRight size={14} />
           </button>
         </div>
+
         <div className="admission-sidebar-footer">
           <div className="admission-sidebar-status">
             <span className="admission-live-dot" />
-            {t("Live seat availability")}
+            <span>{t("Live seat availability")}</span>
           </div>
-          <small>{t("No account required")}</small>
+          <small className="admission-sidebar-session">
+            {t("Academic Session 2026–2027")}
+          </small>
         </div>
       </aside>
       <header className="admission-topbar">

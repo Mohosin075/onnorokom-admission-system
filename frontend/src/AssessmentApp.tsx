@@ -279,13 +279,6 @@ function MainDashboard() {
             </p>
           )}
         </section>
-        {workspace === "student" && (
-          <p className="admission-demo-notice">
-            {t(
-              "Demo payment only. No money will be charged. Paying confirms your reserved seat immediately.",
-            )}
-          </p>
-        )}
         {workspace === "admin" && (
           <dl className="admission-metrics">
             {[
