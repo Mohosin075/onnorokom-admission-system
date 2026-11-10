@@ -5,8 +5,6 @@ import {
   LayoutDashboard,
   Plus,
   UserPlus,
-  Search,
-  ArrowRight,
 } from "lucide-react";
 interface NavbarProps {
   onNewStudent: () => void;
@@ -17,7 +15,7 @@ interface NavbarProps {
 }
 export function Navbar({
   onNewStudent,
-  onFindApplications,
+  onFindApplications: _onFindApplications,
   onOpenCreateClass,
   workspace,
   onWorkspaceChange,
@@ -70,28 +68,6 @@ export function Navbar({
             </span>
           </button>
         </nav>
-
-        <div className="admission-sidebar-note">
-          <div className="admission-sidebar-help-heading">
-            <span className="admission-sidebar-help-icon">
-              <Search size={15} />
-            </span>
-            <strong>{t("Returning student?")}</strong>
-          </div>
-          <p>
-            {t(
-              "Use your birth registration number to find your applications or continue payment.",
-            )}
-          </p>
-          <button
-            type="button"
-            className="admission-sidebar-help-link"
-            onClick={onFindApplications}
-          >
-            <span>{t("Find my applications")}</span>
-            <ArrowRight size={14} />
-          </button>
-        </div>
 
         <div className="admission-sidebar-footer">
           <div className="admission-sidebar-status">
