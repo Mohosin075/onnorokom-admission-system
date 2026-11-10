@@ -1,112 +1,50 @@
-# School Admission System
+# Admission portal
 
-A first-come, first-served admission application built with .NET 8, PostgreSQL,
-React 19, TypeScript and Vite. Each class/shift has its own capacity. Students
-reserve seats with a 17-digit birth registration number, simulate payment, cancel
-holds and view their application history. No login or payment gateway is required.
+.NET 8, PostgreSQL, React and TypeScript admission system with account authentication, document review and live Stripe Checkout.
 
-## Run with Docker
+The application starts empty by default. There are no sample classes, test payments or seeded admissions. The old assessment database volume is preserved separately; the portal uses the new `portal_data` volume and `admission_portal` database.
 
-From the repository root:
+Optional local preview accounts can be enabled explicitly using `DEMO_ACCOUNTS_ENABLED=true` and a strong `DEMO_ACCOUNTS_PASSWORD`. This creates `admin@demo.invalid` and `student@demo.invalid` in Development only, without applicant details, classes, documents or payments. The currently requested local credentials are stored in the ignored `.local/DEMO-ACCOUNTS.md`. Production disables bootstrap and rejects `.invalid` account logins and sessions even if the local database is reused.
 
-```sh
-docker compose up --build
-```
+## Local startup
 
-Open the frontend at **http://localhost:3000**. The API is at
-**http://localhost:8080**, Swagger at **http://localhost:8080/swagger**, and readiness
-at **http://localhost:8080/health**. Only Docker with Compose is required.
+1. Copy `.env.example` to `.env` if `.env` does not already exist.
+2. Set a strong random `POSTGRES_PASSWORD`.
+3. Supply the actual institution name and first administrator email/password. Passwords need at least 12 characters, including letters and numbers. No administrator is created when these settings are absent.
+4. Configure authenticated SMTP to enable applicant registration and verification emails.
+5. Run `docker compose up --build -d --wait`.
 
-PostgreSQL uses a named volume and is reachable inside the Compose network.
-`docker compose down` followed by `docker compose up` preserves admissions.
-`docker compose down --volumes` deletes the database; use it only to intentionally
-reset local data.
+Open http://localhost:3000. Swagger is available at http://localhost:8080/swagger in Development only. Local ports bind to loopback. Production deployment is described in [PRODUCTION.md](PRODUCTION.md).
 
-Startup applies versioned EF Core migrations. The initial migration also adopts
-the original matching `EnsureCreated` schema without deleting its existing data.
-A PostgreSQL advisory lock serializes migrations when API instances start together.
-Database initialization failure stops API startup instead of serving a broken app.
+## Applicant workflow
 
-## Configuration
+- Register with your email and password; follow the emailed verification link, then sign in.
+- Save applicant name, birth registration, date of birth, guardian, mobile number and address.
+- Upload birth certificate and photograph as PNG/JPEG images, maximum 5 MB each. An academic record is optional.
+- Admissions staff download and inspect documents and approve or reject them with a reason. Document access is restricted to its owner and administrators. Identity fields are locked once documents are uploaded or an application exists.
+- Approved applicants reserve an available class seat. Default hold duration is 35 minutes; open Stripe Checkout within the first four minutes. Stripe Checkout itself expires 30 minutes after payment initiation.
+- Pay through live Stripe Checkout. Only a signed webhook, followed by a server-to-server paid-status, currency, amount and transaction check, can confirm admission. A return URL never confirms payment.
+- Payment for an expired/cancelled hold triggers an idempotent refund rather than reallocating the seat. Refund failures remain visible for administrative retry.
+- Download the payment receipt and admission card after confirmation. Downloads are server-generated HTML documents that can be printed or saved as PDF through the browser. The admission card confirms admission; no exam schedule or examination admit card is invented.
+- Review application history. Holds can be cancelled before checkout is opened. Once checkout exists, wait for payment completion or hold expiry.
 
-- Backend: `ConnectionStrings__DefaultConnection` overrides the PostgreSQL connection
-  string. Compose supplies it automatically. There is no in-memory production fallback.
-- `HOLD_DURATION_SECONDS`: hold lifetime, default 600 seconds. Set it in the root
-  `.env` or shell before starting Compose; for example, 10 for a short expiry demo.
-- `VITE_API_URL`: frontend API URL, default `http://localhost:8080`. Compose passes
-  this as a build argument. After changing it, run `docker compose up --build`.
-  This is the URL the user's browser can reach, not the Compose service hostname.
-- For frontend development, copy `front-end/.env.example` to `front-end/.env`.
+Birth registration ownership is checked by admissions staff against uploaded documents; there is no claim of government registry verification.
 
-## Tests using only Docker
+## Administration
+
+The actual administrator configured through environment settings signs in through the same portal. The server enforces the Admin role for class creation, fees, document reviews, reports, application search, notification retries, refund retries and audit records. Student input or headers cannot grant administrative access or select another identity.
+
+The dashboard shows real applicant/application counts, active reservations, confirmed seats, collected BDT fees, document review backlog and provider configuration status. Application search supports name, email, birth registration, reference, class, status and pagination. Recent payments, notification delivery attempts and administrative audit history are available in separate tabs.
+
+## Verification
 
 ```sh
 docker compose --profile test run --build --rm tests
 docker compose --profile test run --build --rm frontend-tests
 docker compose --profile test run --rm frontend-tests npm run lint -- --deny-warnings
-```
-
-The backend suite has 6 service tests and 10 real PostgreSQL integration tests.
-Integration tests create uniquely named temporary databases and drop only those
-databases afterward. The test PostgreSQL user needs permission to create databases.
-The frontend suite has 10 regression tests for identity switching, restoration,
-expired/new holds, stale responses, slow polling, payment success, background
-connection failures and dialog focus/lifecycle.
-
-The backend integration tests verify:
-
-- Two independent API hosts share five seats safely under 30 concurrent HTTP requests:
-  exactly five return 201 and the other 25 return 409. No test-side reservation lock is used.
-- Concurrent duplicate applications and competing confirmation/cancellation requests.
-- Thirty concurrent confirmations remain idempotent across two hosts, and an expiry
-  update blocked by an uncommitted confirmation rechecks status after that commit.
-- A confirmation waiting on a database lock rechecks expiry before it can succeed.
-- Ownership, JSON contracts, idempotency, invalid input, automatic expiry, restart
-  persistence and migration from the original schema.
-
-For local development with .NET 8 SDK and a PostgreSQL server, set
-`TEST_POSTGRES_CONNECTION` to an administrative connection string, then run
-`dotnet test backend/SchoolAdmission.sln`. Without that variable, the 10 database tests
-are explicitly skipped, rather than simulated with InMemory.
-
-Frontend development requires Node 22.12+ or a compatible newer release:
-
-```sh
-cd front-end
-npm ci
-npm test
-npm run lint
-npm run build
-npm run dev
-```
-
-With the application running, an optional Python 3 smoke test exercises all eight
-required endpoints and concurrent reservation against the actual HTTP server:
-
-```sh
 python scripts/smoke.py
-docker compose down
-docker compose up --wait
-python scripts/smoke.py --verify-persistence
 ```
 
-GitHub Actions runs the Docker builds, both test suites, lint, the HTTP smoke test,
-and persistence verification after Compose down/up. Docker execution must still be
-checked on the target machine or in CI; the local verification used PostgreSQL 18,
-.NET 8 and Node 24 without Docker. Local HTTP smoke checks also used two separate
-API processes sharing the same database; add `--secondary-api http://localhost:8081`
-to the smoke command when a second API process is running on that port.
+Backend integration tests create and remove uniquely named `school_admission_tests_*` databases. Test-only transport substitutions exercise signed Stripe callbacks, duplicate delivery, wrong amounts and late-payment refunds without contacting Stripe or writing transactions to the live application database. Unit tests and frontend tests use isolated fixtures. The public smoke check is read-only and never creates sample classes or applicants.
 
-## Concurrency and structure
-
-Reservation, confirmation and cancellation serialize on the PostgreSQL class row.
-Confirmation and cancellation additionally lock the hold row before validating its
-current status and expiry. Expiry uses a conditional database update that cannot
-replace a confirmed status. Read endpoints compute effective expiry without writing
-stale records. Explicit transactions use the non-retrying PostgreSQL strategy; a
-retrying strategy must wrap the entire transaction if added later.
-
-`backend/src` contains Domain, Application, Infrastructure and API projects;
-`backend/tests` contains service and HTTP integration tests. `front-end/src` contains
-the React application and regression tests. Design choices are in `ASSUMPTIONS.md`,
-and AI assistance is recorded in `AI_USAGE.md`.
+The repository does not contain provider credentials. Live money movement, SMTP/SMS delivery, real-domain TLS and off-machine backups must be commissioned against the institution's own accounts before launch. Configuration flags indicate supplied settings, not a completed delivery or payment test.

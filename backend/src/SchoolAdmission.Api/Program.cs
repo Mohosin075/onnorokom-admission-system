@@ -6,8 +6,18 @@ using SchoolAdmission.Api.Middleware;
 using SchoolAdmission.Application;
 using SchoolAdmission.Infrastructure;
 using SchoolAdmission.Infrastructure.Persistence;
+using SchoolAdmission.Api.Portal;
+using Microsoft.AspNetCore.Antiforgery;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddPortal();
+if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+{
+    if (!Uri.TryCreate(builder.Configuration["Portal:PublicUrl"], UriKind.Absolute, out var publicUrl) || publicUrl.Scheme != "https")
+        throw new InvalidOperationException("Production requires an HTTPS Portal:PublicUrl.");
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Portal:InstitutionName"]))
+        throw new InvalidOperationException("Production requires Portal:InstitutionName.");
+}
 // Console logging works in containers and unprivileged Windows sessions.
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -36,15 +46,15 @@ builder.Services.AddSwaggerGen(c =>
         Description = "First-Come, First-Served School Admission System API with high-concurrency seat reservation."
     });
 
-    c.OperationFilter<StudentIdHeaderOperationFilter>();
 });
 
 // CORS: allow frontend to interact with backend
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("Portal", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(builder.Configuration["Portal:PublicUrl"] ?? "http://localhost:3000")
+              .AllowCredentials()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -55,6 +65,7 @@ builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 
 // Ensure Database schema is created on startup
 using (var scope = app.Services.CreateScope())
@@ -95,14 +106,37 @@ using (var scope = app.Services.CreateScope())
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Enable Swagger in all environments for ease of testing by evaluators
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing")) {
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "School Admission System API v1");
     c.RoutePrefix = "swagger";
 });
+}
 
-app.UseCors("AllowAll");
+app.UseCors("Portal");
+app.UseAuthentication();
+app.UseRateLimiter();
+app.UseAuthorization();
+app.Use(async (context, next) => {
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "same-origin";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers.CacheControl = "no-store";
+    if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
+        && !HttpMethods.IsOptions(context.Request.Method) && context.Request.Path != "/payments/stripe/webhook")
+    {
+        try { await context.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(context); }
+        catch (AntiforgeryValidationException) { context.Response.StatusCode = 400; await context.Response.WriteAsJsonAsync(new { message = "Session security token expired. Refresh the page and try again." }); return; }
+    }
+    await next();
+});
+app.MapGet("/auth/csrf", (HttpContext ctx, IAntiforgery antiforgery) => Results.Ok(new { token = antiforgery.GetAndStoreTokens(ctx).RequestToken }));
+app.MapGet("/portal", (IConfiguration config) => Results.Ok(new { institutionName = config["Portal:InstitutionName"], currency = "BDT" }));
+app.MapGet("/class-fees", async (ApplicationDbContext db, CancellationToken ct) => Results.Ok(await db.Fees.AsNoTracking().ToListAsync(ct)));
+await PortalSetup.BootstrapAdmin(app.Services, app.Configuration);
+await PortalSetup.BootstrapDemo(app.Services, app.Configuration, app.Environment);
 
 app.MapControllers();
 app.MapGet("/health", async (ApplicationDbContext db, CancellationToken cancellationToken) =>

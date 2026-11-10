@@ -2,10 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolAdmission.Application.DTOs;
 using SchoolAdmission.Application.Interfaces;
 using SchoolAdmission.Domain.Exceptions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using SchoolAdmission.Api.Portal;
+using SchoolAdmission.Infrastructure.Persistence;
 
 namespace SchoolAdmission.Api.Controllers;
 
-[ApiController]
+[ApiController, Authorize]
 [Route("holds")]
 public class HoldsController : ControllerBase
 {
@@ -22,8 +26,11 @@ public class HoldsController : ControllerBase
     [HttpGet("{holdId}")]
     public async Task<ActionResult<HoldStatusResponse>> GetHoldById(
         [FromRoute] string holdId,
+        [FromServices] ApplicationDbContext db,
         CancellationToken cancellationToken)
     {
+        if (!await db.Holds.AnyAsync(x => x.Id == holdId && (x.StudentId == User.StudentId() || User.IsInRole("Admin")), cancellationToken))
+            return NotFound();
         var result = await _holdService.GetHoldByIdAsync(holdId, cancellationToken);
         return Ok(result);
     }
@@ -34,14 +41,10 @@ public class HoldsController : ControllerBase
     [HttpPost("{holdId}/confirm")]
     public async Task<ActionResult<ConfirmHoldResponse>> ConfirmHold(
         [FromRoute] string holdId,
-        [FromHeader(Name = "X-Student-Id")] string? studentId,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(studentId))
-            throw new ValidationException("Header 'X-Student-Id' is required.");
-
-        var result = await _holdService.ConfirmHoldAsync(holdId, studentId, cancellationToken);
-        return Ok(result);
+        await Task.CompletedTask;
+        return StatusCode(410, new { message = "Direct confirmation is disabled. Admission is confirmed only after a verified Stripe payment." });
     }
 
     /// <summary>
@@ -50,12 +53,12 @@ public class HoldsController : ControllerBase
     [HttpDelete("{holdId}")]
     public async Task<IActionResult> CancelHold(
         [FromRoute] string holdId,
-        [FromHeader(Name = "X-Student-Id")] string? studentId,
+        [FromServices] ApplicationDbContext db,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(studentId))
-            throw new ValidationException("Header 'X-Student-Id' is required.");
-
+        var studentId = User.StudentId();
+        if (await db.Payments.AnyAsync(x => x.HoldId == holdId && x.Status == "Pending" && x.ValidationId != null, cancellationToken))
+            return Conflict(new { message = "A Stripe checkout is in progress. Wait for it to complete or for the reservation to expire." });
         await _holdService.CancelHoldAsync(holdId, studentId, cancellationToken);
         return NoContent();
     }

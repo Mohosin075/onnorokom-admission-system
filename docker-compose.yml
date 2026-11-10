@@ -2,15 +2,18 @@ services:
   db:
     image: postgres:16-alpine
     container_name: school_admission_postgres
+    networks:
+      default:
+        ipv4_address: 172.29.210.2
     restart: always
     environment:
-      POSTGRES_DB: school_admission_db
+      POSTGRES_DB: admission_portal
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - portal_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d school_admission_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d admission_portal"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,17 +23,38 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: school_admission_backend
+    networks:
+      default:
+        ipv4_address: 172.29.210.3
     restart: always
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       db:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=school_admission_db;Username=postgres;Password=postgres;
-      - HOLD_DURATION_SECONDS=${HOLD_DURATION_SECONDS:-600}
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=admission_portal;Username=postgres;Password=${POSTGRES_PASSWORD};
+      - HOLD_DURATION_SECONDS=${HOLD_DURATION_SECONDS:-2100}
+      - Portal__PublicUrl=${PUBLIC_URL:-http://localhost:3000}
+      - Portal__InstitutionName=${INSTITUTION_NAME:-}
+      - Bootstrap__AdminEmail=${ADMIN_EMAIL:-}
+      - Bootstrap__AdminPassword=${ADMIN_PASSWORD:-}
+      - DemoAccounts__Enabled=${DEMO_ACCOUNTS_ENABLED:-false}
+      - DemoAccounts__Password=${DEMO_ACCOUNTS_PASSWORD:-}
+      - Stripe__SecretKey=${STRIPE_SECRET_KEY:-}
+      - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET:-}
+      - Smtp__Host=${SMTP_HOST:-}
+      - Smtp__Port=${SMTP_PORT:-587}
+      - Smtp__Username=${SMTP_USERNAME:-}
+      - Smtp__Password=${SMTP_PASSWORD:-}
+      - Smtp__From=${SMTP_FROM:-}
+      - Sms__ApiKey=${SMS_API_KEY:-}
+      - Sms__SenderId=${SMS_SENDER_ID:-}
+    volumes:
+      - portal_uploads:/app/uploads
+      - portal_keys:/app/keys
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
       interval: 5s
@@ -42,11 +66,14 @@ services:
       context: ./front-end
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        VITE_API_URL: /api
     container_name: school_admission_frontend
+    networks:
+      default:
+        ipv4_address: 172.29.210.4
     restart: always
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       backend:
         condition: service_healthy
@@ -60,7 +87,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      TEST_POSTGRES_CONNECTION: Host=db;Port=5432;Database=postgres;Username=postgres;Password=postgres
+      TEST_POSTGRES_CONNECTION: Host=db;Port=5432;Database=postgres;Username=postgres;Password=${POSTGRES_PASSWORD}
 
   frontend-tests:
     profiles: ["test"]
@@ -69,6 +96,15 @@ services:
       target: test
 
 volumes:
+  portal_data:
+  portal_uploads:
+  portal_keys:
   postgres_data:
     driver: local
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.210.0/24
 

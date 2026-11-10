@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolAdmission.Application.DTOs;
 using SchoolAdmission.Application.Interfaces;
 using SchoolAdmission.Domain.Exceptions;
+using Microsoft.AspNetCore.Authorization;
+using SchoolAdmission.Api.Portal;
 
 namespace SchoolAdmission.Api.Controllers;
 
-[ApiController]
+[ApiController, Authorize]
 [Route("me")]
 public class MeController : ControllerBase
 {
@@ -21,12 +23,10 @@ public class MeController : ControllerBase
     /// </summary>
     [HttpGet("holds")]
     public async Task<ActionResult<List<StudentHoldResponse>>> GetMyHolds(
-        [FromHeader(Name = "X-Student-Id")] string? studentId,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(studentId))
-            throw new ValidationException("Header 'X-Student-Id' is required.");
-
+        var studentId = User.StudentId();
+        if (string.IsNullOrEmpty(studentId)) return Ok(new List<StudentHoldResponse>());
         var result = await _holdService.GetStudentHoldsAsync(studentId, cancellationToken);
         return Ok(result);
     }

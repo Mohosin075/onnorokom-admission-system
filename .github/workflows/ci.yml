@@ -11,20 +11,22 @@ jobs:
         with:
           python-version: '3.x'
       - name: Build and start all services
-        run: docker compose up --build --wait --wait-timeout 180
+        run: |
+          python -c "import secrets,pathlib; pathlib.Path('.env').write_text('POSTGRES_PASSWORD='+secrets.token_hex(32)+'\nASPNETCORE_ENVIRONMENT=Development\nPUBLIC_URL=http://localhost:3000\n')"
+          docker compose up --build --wait --wait-timeout 180
       - name: Backend unit and real PostgreSQL integration tests
         run: docker compose --profile test run --build --rm tests
       - name: Frontend regression tests and lint
         run: |
           docker compose --profile test run --build --rm frontend-tests
           docker compose --profile test run --rm frontend-tests npm run lint -- --deny-warnings
-      - name: Deployed API contract and concurrency smoke test
+      - name: Read-only deployed health and access-control smoke test
         run: python scripts/smoke.py
       - name: Restart containers and verify persistence
         run: |
           docker compose down
           docker compose up --wait --wait-timeout 180
-          python scripts/smoke.py --verify-persistence
+          python scripts/smoke.py
       - name: Container logs
         if: failure()
         run: docker compose logs

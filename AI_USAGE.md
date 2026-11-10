@@ -50,3 +50,6 @@ defined in CI and can be run using the commands in README.md. Local NuGet restor
 metadata retained a warning about unavailable vulnerability-service access; it did
 not prevent compilation or tests. Test results should not be interpreted as proof
 for arbitrary production traffic or unsynchronized server clocks.
+# Production portal extension
+
+The assessment flow was extended with account authentication, role-based administration, verified email, password recovery, applicant profiles, private document review, live-only Stripe Checkout and signed webhook verification, refund handling, a persistent notification outbox, administrative search/reporting and downloadable admission records. No real applicant information or payment credentials were supplied during implementation. Automated fixtures are limited to disposable test databases; the application database starts empty. Provider commissioning and real-domain deployment require institution-owned credentials and acceptance checks documented in PRODUCTION.md.

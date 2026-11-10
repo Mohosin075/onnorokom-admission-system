@@ -22,6 +22,146 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AccountToken", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AccountTokens");
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionDocument", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OriginalName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("Documents");
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionFee", b =>
+                {
+                    b.Property<string>("ClassId")
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.HasKey("ClassId");
+
+                    b.ToTable("Fees");
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionPayment", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("BankTransactionId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("GatewayUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HoldId")
+                        .IsRequired()
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ValidationId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HoldId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ValidationId")
+                        .IsUnique();
+
+                    b.ToTable("Payments");
+                });
+
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.ClassRoom", b =>
                 {
                     b.Property<string>("Id")
@@ -46,6 +186,144 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("classes", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.NotificationMessage", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SentAt", "NextAttemptAt");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.PortalAudit", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResourceId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Audit");
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.PortalUser", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BirthRegistration")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("EmailVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("FailedLogins")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("GuardianName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BirthRegistration")
+                        .IsUnique();
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.SeatHold", b =>
@@ -98,6 +376,48 @@ namespace SchoolAdmission.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClassId", "Status", "ExpiresAtUtc");
 
                     b.ToTable("seat_holds", (string)null);
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AccountToken", b =>
+                {
+                    b.HasOne("SchoolAdmission.Domain.Entities.PortalUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionDocument", b =>
+                {
+                    b.HasOne("SchoolAdmission.Domain.Entities.PortalUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionFee", b =>
+                {
+                    b.HasOne("SchoolAdmission.Domain.Entities.ClassRoom", null)
+                        .WithOne()
+                        .HasForeignKey("SchoolAdmission.Domain.Entities.AdmissionFee", "ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SchoolAdmission.Domain.Entities.AdmissionPayment", b =>
+                {
+                    b.HasOne("SchoolAdmission.Domain.Entities.SeatHold", null)
+                        .WithMany()
+                        .HasForeignKey("HoldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAdmission.Domain.Entities.PortalUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SchoolAdmission.Domain.Entities.SeatHold", b =>

@@ -2,6 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using SchoolAdmission.Application.DTOs;
 using SchoolAdmission.Application.Interfaces;
 using SchoolAdmission.Domain.Exceptions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using SchoolAdmission.Api.Portal;
+using SchoolAdmission.Infrastructure.Persistence;
 
 namespace SchoolAdmission.Api.Controllers;
 
@@ -21,7 +25,7 @@ public class ClassesController : ControllerBase
     /// <summary>
     /// Create a new class with seat capacity.
     /// </summary>
-    [HttpPost]
+    [Authorize(Roles = "Admin"), HttpPost]
     public async Task<ActionResult<CreateClassResponse>> CreateClass(
         [FromBody] CreateClassRequest request,
         CancellationToken cancellationToken)
@@ -55,15 +59,21 @@ public class ClassesController : ControllerBase
     /// <summary>
     /// Hold/reserve a seat in a class.
     /// </summary>
-    [HttpPost("{classId}/holds")]
+    [Authorize(Roles = "Student"), HttpPost("{classId}/holds")]
     public async Task<ActionResult<CreateHoldResponse>> CreateHold(
         [FromRoute] string classId,
-        [FromHeader(Name = "X-Student-Id")] string? studentId,
+        [FromServices] ApplicationDbContext db,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(studentId))
-            throw new ValidationException("Header 'X-Student-Id' is required.");
-
+        var studentId = User.StudentId();
+        var user = await PortalSecurity.Current(db, User, cancellationToken);
+        if (string.IsNullOrWhiteSpace(studentId) || string.IsNullOrWhiteSpace(user.FullName) || user.DateOfBirth == null)
+            throw new ValidationException("Complete your admission profile before reserving a seat.");
+        if (!await db.Documents.AnyAsync(x => x.UserId == user.Id && x.Kind == "BirthCertificate" && x.ReviewStatus == "Approved", cancellationToken)
+            || !await db.Documents.AnyAsync(x => x.UserId == user.Id && x.Kind == "Photograph" && x.ReviewStatus == "Approved", cancellationToken))
+            throw new ValidationException("Upload your birth certificate and photograph, and wait for admissions to approve them before applying.");
+        if (!await db.Fees.AnyAsync(x => x.ClassId == classId && x.Amount >= 10, cancellationToken))
+            throw new ValidationException("Admissions are not open for this class yet.");
         var result = await _holdService.CreateHoldAsync(classId, studentId, cancellationToken);
         return StatusCode(StatusCodes.Status201Created, result);
     }

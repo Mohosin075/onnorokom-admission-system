@@ -1,0 +1,32 @@
+services:
+  backend:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DemoAccounts__Enabled: "false"
+      DemoAccounts__Password: ""
+      Portal__PublicUrl: https://${PUBLIC_DOMAIN:?Set your real PUBLIC_DOMAIN}
+      Portal__InstitutionName: ${INSTITUTION_NAME:?Set your real INSTITUTION_NAME}
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      default:
+        ipv4_address: 172.29.210.5
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Set your real PUBLIC_DOMAIN}
+      TLS_EMAIL: ${TLS_EMAIL:?Set TLS_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+volumes:
+  caddy_data:
+  caddy_config:
