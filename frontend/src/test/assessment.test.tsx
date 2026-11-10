@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -65,6 +66,28 @@ beforeEach(() => {
 });
 
 describe("student identity and restoration", () => {
+  it("separates admin actions from student admissions and preserves identity when switching", async () => {
+    render(<App />);
+    fireEvent.change(screen.getByLabelText("Student ID:"), {
+      target: { value: STUDENT_A },
+    });
+    await screen.findByRole("button", { name: /Apply Now/i });
+    expect(
+      screen.queryByRole("button", { name: /Create Class/i }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Admin workspace" }));
+    expect(screen.getByRole("button", { name: /Create Class/i })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /Apply Now/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Student ID:")).not.toBeInTheDocument();
+    expect(screen.getByText(/public assessment workspace/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Student admissions" }));
+    expect(screen.getByLabelText("Student ID:")).toHaveValue(STUDENT_A);
+    expect(
+      await screen.findByRole("button", { name: /Apply Now/i }),
+    ).toBeEnabled();
+  });
   it("opens the no-login assessment UI from the default application entry point", async () => {
     vi.stubEnv("VITE_APP_MODE", "assessment");
     render(<DefaultApp />);
@@ -151,6 +174,133 @@ describe("student identity and restoration", () => {
 });
 
 describe("application status and errors", () => {
+  it("resumes an existing reservation even when the class has no seats left", async () => {
+    localStorage.setItem("school_admission_student_id", STUDENT_A);
+    const reservation = hold("h_existing");
+    vi.mocked(api.getMyHolds).mockResolvedValue([reservation]);
+    vi.mocked(api.getClasses).mockResolvedValue([
+      {
+        id: "c_test",
+        name: "Reserved class",
+        totalSeats: 1,
+        heldSeats: 1,
+        confirmedSeats: 0,
+        availableSeats: 0,
+      },
+    ]);
+    render(<App />);
+    const resume = await screen.findByRole("button", {
+      name: "Continue payment",
+    });
+    expect(resume).toBeEnabled();
+    fireEvent.click(resume);
+    expect(await screen.findByText("ID: h_existing")).toBeVisible();
+    expect(api.createHold).not.toHaveBeenCalled();
+  });
+
+  it("searches, filters and sorts real class responses without changing seat counts", async () => {
+    const base = { totalSeats: 5, heldSeats: 0, confirmedSeats: 0 };
+    vi.mocked(api.getClasses).mockResolvedValue([
+      { ...base, id: "alpha", name: "Alpha Morning", availableSeats: 2 },
+      { ...base, id: "beta", name: "Beta Evening", availableSeats: 5 },
+      {
+        ...base,
+        id: "full",
+        name: "Closed Morning",
+        confirmedSeats: 5,
+        availableSeats: 0,
+      },
+    ]);
+    render(<App />);
+    await screen.findByText("Alpha Morning");
+    fireEvent.change(screen.getByLabelText("Sort classes"), {
+      target: { value: "seats" },
+    });
+    expect(
+      screen
+        .getAllByRole("article")
+        .map((item) => within(item).getByRole("heading").textContent),
+    ).toEqual(["Beta Evening", "Alpha Morning", "Closed Morning"]);
+    fireEvent.change(screen.getByLabelText("Seat availability"), {
+      target: { value: "available" },
+    });
+    expect(screen.queryByText("Closed Morning")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search classes"), {
+      target: { value: "EVENING" },
+    });
+    expect(screen.getAllByRole("article")).toHaveLength(1);
+    expect(screen.getByText("Beta Evening")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Search classes"), {
+      target: { value: "unknown" },
+    });
+    expect(screen.getByText("No matching classes")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+    expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(api.createHold).not.toHaveBeenCalled();
+  });
+
+  it("moves keyboard focus to the payment section after reserving a seat", async () => {
+    localStorage.setItem("school_admission_student_id", STUDENT_A);
+    vi.mocked(api.createHold).mockResolvedValue(hold("h_focus"));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Apply Now" }));
+    await screen.findByText("ID: h_focus");
+    expect(
+      screen.getByRole("region", { name: "Active Application Status" }),
+    ).toHaveFocus();
+    expect(api.createHold).toHaveBeenCalledWith("c_test", STUDENT_A);
+  });
+
+  it("only releases a reservation after explicit inline confirmation", async () => {
+    localStorage.setItem("school_admission_student_id", STUDENT_A);
+    localStorage.setItem("school_admission_active_hold_id", "h_cancel");
+    vi.mocked(api.cancelHold).mockResolvedValue(undefined);
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /Cancel/i }));
+    expect(api.cancelHold).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Keep reservation" }));
+    expect(screen.queryByText("Release this seat?")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Release seat" }));
+    await waitFor(() =>
+      expect(api.cancelHold).toHaveBeenCalledWith("h_cancel", STUDENT_A),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("ID: h_cancel")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("filters history using effective expiry and reopens a confirmed admission", async () => {
+    localStorage.setItem("school_admission_student_id", STUDENT_A);
+    const confirmed = {
+      ...hold("h_confirmed"),
+      className: "Confirmed class",
+      status: "CONFIRMED" as const,
+    };
+    const expired = {
+      ...hold("h_expired", new Date(Date.now() - 1000).toISOString()),
+      className: "Expired class",
+    };
+    vi.mocked(api.getMyHolds).mockResolvedValue([confirmed, expired]);
+    vi.mocked(api.getHoldById).mockResolvedValue(confirmed);
+    render(<App />);
+    const filter = await screen.findByLabelText("Show applications");
+    fireEvent.change(filter, { target: { value: "EXPIRED" } });
+    expect(screen.getByText("Expired class")).toBeVisible();
+    expect(screen.queryByText("Confirmed class")).not.toBeInTheDocument();
+    fireEvent.change(filter, { target: { value: "CONFIRMED" } });
+    expect(screen.queryByText("Expired class")).not.toBeInTheDocument();
+    fireEvent.click(
+      within(
+        screen.getByRole("region", { name: "My Applications History" }),
+      ).getByRole("button", { name: "View admission" }),
+    );
+    expect(await screen.findByText("Admission Confirmed")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /Pay Admission Fee/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows a successful payment even if a subsequent status read would fail", async () => {
     localStorage.setItem("school_admission_student_id", STUDENT_A);
     localStorage.setItem("school_admission_active_hold_id", "h_paid");
@@ -206,6 +356,7 @@ describe("application status and errors", () => {
       }),
     );
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Admin workspace" }));
     fireEvent.click(screen.getByRole("button", { name: /Create Class/i }));
     fireEvent.change(screen.getByLabelText("Class & Shift Name"), {
       target: { value: "Old class" },
@@ -290,6 +441,7 @@ describe("application status and errors", () => {
 
   it("opens an accessible class dialog and restores focus on Escape", () => {
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Admin workspace" }));
     const open = screen.getByRole("button", { name: /Create Class/i });
     open.focus();
     fireEvent.click(open);

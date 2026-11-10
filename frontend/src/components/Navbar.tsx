@@ -1,83 +1,130 @@
-import React from 'react';
-import { useStudent } from '../context/student-store';
-import { School, UserCheck, AlertCircle, ShieldAlert } from 'lucide-react';
-
+import {
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  GraduationCap,
+  LayoutDashboard,
+  Plus,
+} from "lucide-react";
+import { useStudent } from "../context/student-store";
 interface NavbarProps {
   onOpenCreateClass: () => void;
+  workspace: "student" | "admin";
+  onWorkspaceChange: (value: "student" | "admin") => void;
 }
-
-export const Navbar: React.FC<NavbarProps> = ({ onOpenCreateClass }) => {
+export function Navbar({
+  onOpenCreateClass,
+  workspace,
+  onWorkspaceChange,
+}: NavbarProps) {
   const { studentId, setStudentId, isValidStudentId } = useStudent();
-
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          
-          {/* Logo & School Title */}
-          <div className="flex items-center space-x-3">
-            <div className="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md">
-              <School className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 leading-tight">
-                School Admission System
-              </h1>
-              <p className="text-xs text-slate-500 font-medium">
-                First-Come, First-Served Admission Portal
-              </p>
-            </div>
-          </div>
-
-          {/* Student Identity Input & Admin Action */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center space-x-2 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all">
-              <label htmlFor="student-id" className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                Student ID:
-              </label>
+    <>
+      <aside className="admission-sidebar">
+        <a
+          className="admission-brand"
+          href="#main-content"
+          aria-label="School admissions home"
+        >
+          <span className="admission-brand-icon">
+            <GraduationCap size={25} />
+          </span>
+          <span>
+            School admissions<small>A place to begin.</small>
+          </span>
+        </a>
+        <p className="admission-nav-label">YOUR WORKSPACE</p>
+        <nav aria-label="Workspace" className="admission-workspaces">
+          <button
+            aria-label="Student admissions"
+            aria-pressed={workspace === "student"}
+            onClick={() => onWorkspaceChange("student")}
+          >
+            <BookOpen size={19} />
+            <span>
+              Student admissions<small>Find your class & apply</small>
+            </span>
+            {workspace === "student" && <span className="admission-nav-dot" />}
+          </button>
+          <button
+            aria-label="Admin workspace"
+            aria-pressed={workspace === "admin"}
+            onClick={() => onWorkspaceChange("admin")}
+          >
+            <LayoutDashboard size={19} />
+            <span>
+              Admin workspace<small>Classes & seat capacity</small>
+            </span>
+            {workspace === "admin" && <span className="admission-nav-dot" />}
+          </button>
+        </nav>
+        <div className="admission-sidebar-note">
+          <span className="admission-eyebrow">HOW SEATS WORK</span>
+          <p>
+            First come.
+            <br />
+            First reserved.
+          </p>
+          <small>
+            A reservation holds your seat temporarily. Confirm it before the
+            countdown ends.
+          </small>
+          <ArrowUpRight size={22} />
+        </div>
+        <div className="admission-sidebar-footer">
+          <span className="admission-live-dot" /> Live seat availability
+          <small>No account required</small>
+        </div>
+      </aside>
+      <header className="admission-topbar">
+        <div>
+          <span className="admission-eyebrow">
+            ADMISSIONS / {workspace === "student" ? "STUDENT" : "ADMIN"}
+          </span>
+          <p>
+            {workspace === "student"
+              ? "Make room for your next chapter."
+              : "Your admissions, in one place."}
+          </p>
+        </div>
+        {workspace === "student" ? (
+          <div className="admission-identity">
+            <label htmlFor="student-id">Student ID:</label>
+            <div
+              className={
+                isValidStudentId
+                  ? "admission-identity-input is-ready"
+                  : "admission-identity-input"
+              }
+            >
               <input
                 id="student-id"
-                type="text"
+                inputMode="numeric"
+                autoComplete="off"
                 maxLength={17}
                 value={studentId}
-                onChange={(e) => setStudentId(e.target.value.replace(/\D/g, ''))}
-                placeholder="17-digit Birth Reg No"
-                className="bg-transparent text-sm font-mono font-medium text-slate-800 placeholder-slate-400 focus:outline-none w-48"
+                onChange={(e) =>
+                  setStudentId(e.target.value.replace(/\D/g, ""))
+                }
+                placeholder="17-digit birth registration"
+                aria-describedby="student-id-help"
               />
-              {isValidStudentId ? (
-                <span title="Valid 17-digit ID" className="flex items-center text-emerald-600 text-xs font-medium">
-                  <UserCheck className="w-4 h-4 mr-0.5" />
-                  <span className="hidden sm:inline">Valid</span>
-                </span>
-              ) : (
-                <span title="Must be exactly 17 digits" className="flex items-center text-amber-600 text-xs font-medium">
-                  <AlertCircle className="w-4 h-4 mr-0.5" />
-                  <span className="hidden sm:inline">{studentId.length}/17</span>
-                </span>
+              {isValidStudentId && (
+                <Check size={17} aria-label="ID format ready" />
               )}
             </div>
-
-            <button
-              onClick={onOpenCreateClass}
-              className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 transition-colors shadow-sm"
-            >
-              + Create Class (Admin)
-            </button>
+            <small id="student-id-help">
+              {isValidStudentId
+                ? "ID ready · your applications are linked below"
+                : studentId.length + "/17 digits · enter your ID to apply"}
+            </small>
           </div>
-
-        </div>
-
-        {/* Validation Warning Notice if not 17 digits */}
-        {!isValidStudentId && (
-          <div className="mt-2.5 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200">
-            <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-            <span>
-              Please enter a valid <strong>17-digit</strong> Birth Registration Number to apply for seats or confirm admission.
-            </span>
-          </div>
+        ) : (
+          <button className="admission-primary" onClick={onOpenCreateClass}>
+            <Plus size={17} /> Create Class (Admin)
+          </button>
         )}
-      </div>
-    </header>
+      </header>
+    </>
   );
-};
-
+}

@@ -1,21 +1,31 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { HoldItem } from '../types';
-import { useStudent } from '../context/student-store';
-import { api, getErrorMessage } from '../services/api';
-import { FileText, RefreshCw, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import type { HoldItem } from "../types";
+import { useStudent } from "../context/student-store";
+import { api, getErrorMessage } from "../services/api";
+import {
+  FileText,
+  RefreshCw,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  AlertTriangle,
+} from "lucide-react";
 
 interface MyApplicationsProps {
   onSelectHold: (holdId: string) => void;
+  onApplicationsLoaded?: (studentId: string, holds: HoldItem[]) => void;
   refreshTrigger: number;
 }
 
 export const MyApplications: React.FC<MyApplicationsProps> = ({
   onSelectHold,
+  onApplicationsLoaded,
   refreshTrigger,
 }) => {
   const { studentId, isValidStudentId } = useStudent();
   const [holds, setHolds] = useState<HoldItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const version = useRef(0);
@@ -35,27 +45,42 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
     setError(null);
     try {
       const data = await api.getMyHolds(studentId);
-      if (mounted.current && request === version.current) setHolds(data);
+      if (mounted.current && request === version.current) {
+        setHolds(data);
+        onApplicationsLoaded?.(studentId, data);
+      }
     } catch (err) {
-      if (mounted.current && request === version.current) setError(getErrorMessage(err));
+      if (mounted.current && request === version.current)
+        setError(getErrorMessage(err));
     } finally {
       fetching.current = false;
       if (mounted.current && request === version.current) setLoading(false);
     }
-  }, [isValidStudentId, studentId]);
+  }, [isValidStudentId, studentId, onApplicationsLoaded]);
 
   useEffect(() => {
     mounted.current = true;
-    const initial = setTimeout(() => { void fetchMyHolds(); }, 0);
-    const poll = setInterval(() => { void fetchMyHolds(); }, 4000);
+    const initial = setTimeout(() => {
+      void fetchMyHolds();
+    }, 0);
+    const poll = setInterval(() => {
+      void fetchMyHolds();
+    }, 4000);
     const clock = setInterval(() => setNow(Date.now()), 1000);
-    return () => { mounted.current = false; clearTimeout(initial); clearInterval(poll); clearInterval(clock); };
+    return () => {
+      mounted.current = false;
+      clearTimeout(initial);
+      clearInterval(poll);
+      clearInterval(clock);
+    };
   }, [fetchMyHolds, refreshTrigger]);
 
   const getStatusBadge = (status: string, expiresAt: string) => {
-    const isActuallyExpired = status === 'EXPIRED' || (status === 'HELD' && new Date(expiresAt).getTime() <= now);
+    const isActuallyExpired =
+      status === "EXPIRED" ||
+      (status === "HELD" && new Date(expiresAt).getTime() <= now);
 
-    if (status === 'CONFIRMED') {
+    if (status === "CONFIRMED") {
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
           <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
@@ -73,7 +98,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       );
     }
 
-    if (status === 'CANCELLED') {
+    if (status === "CANCELLED") {
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-slate-200 text-slate-700">
           <XCircle className="w-3.5 h-3.5 mr-1 text-slate-500" />
@@ -90,6 +115,13 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
     );
   };
 
+  const visibleHolds = holds.filter(
+    (hold) =>
+      statusFilter === "all" ||
+      (hold.status === "HELD" && new Date(hold.expiresAt).getTime() <= now
+        ? "EXPIRED"
+        : hold.status) === statusFilter,
+  );
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -98,9 +130,14 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">My Applications History</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              My Applications History
+            </h2>
             <p className="text-xs text-slate-500">
-              Applications linked to student ID: <span className="font-mono font-medium text-slate-800">{studentId || 'None'}</span>
+              Applications linked to student ID:{" "}
+              <span className="font-mono font-medium text-slate-800">
+                {studentId || "None"}
+              </span>
             </p>
           </div>
         </div>
@@ -111,10 +148,31 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
           className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-40"
           title="Refresh Applications"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
+          <RefreshCw
+            className={`w-4 h-4 ${loading ? "animate-spin text-indigo-600" : ""}`}
+          />
         </button>
       </div>
 
+      {isValidStudentId && holds.length > 0 && (
+        <div className="admission-history-filter">
+          <label htmlFor="application-status">Show applications</label>
+          <select
+            id="application-status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">All statuses</option>
+            <option value="HELD">Awaiting payment</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+          <span>
+            {visibleHolds.length} of {holds.length} applications
+          </span>
+        </div>
+      )}
       {error && (
         <div className="p-4 bg-red-50 text-xs text-red-700 border-b border-red-100">
           {error}
@@ -123,7 +181,10 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
 
       {!isValidStudentId ? (
         <div className="p-8 text-center text-slate-400">
-          <p className="text-sm">Enter a valid 17-digit Student ID at the top to view your application history.</p>
+          <p className="text-sm">
+            Enter a valid 17-digit Student ID at the top to view your
+            application history.
+          </p>
         </div>
       ) : loading && holds.length === 0 ? (
         <div className="p-8 text-center text-slate-400">
@@ -132,8 +193,22 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
         </div>
       ) : holds.length === 0 ? (
         <div className="p-8 text-center text-slate-400">
-          <p className="text-sm font-medium mb-1">No applications found for this student.</p>
-          <p className="text-xs">Choose a class above and click "Apply Now" to reserve a seat.</p>
+          <p className="text-sm font-medium mb-1">
+            No applications found for this student.
+          </p>
+          <p className="text-xs">
+            Choose a class above and click "Apply Now" to reserve a seat.
+          </p>
+        </div>
+      ) : visibleHolds.length === 0 ? (
+        <div className="admission-empty">
+          <h3>No applications with this status</h3>
+          <button
+            className="admission-secondary"
+            onClick={() => setStatusFilter("all")}
+          >
+            Show all applications
+          </button>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -143,20 +218,39 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
                 <th className="px-6 py-3 font-semibold">Hold ID</th>
                 <th className="px-6 py-3 font-semibold">Class / Shift</th>
                 <th className="px-6 py-3 font-semibold">Status</th>
-                <th className="px-6 py-3 font-semibold">Expires / Held Until</th>
+                <th className="px-6 py-3 font-semibold">Payment deadline</th>
                 <th className="px-6 py-3 font-semibold text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {holds.map((h) => {
-                const isHeld = h.status === 'HELD' && new Date(h.expiresAt).getTime() > now;
+              {visibleHolds.map((h) => {
+                const isHeld =
+                  h.status === "HELD" && new Date(h.expiresAt).getTime() > now;
                 return (
-                  <tr key={h.holdId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-6 py-3.5 font-mono text-xs text-slate-600">{h.holdId}</td>
-                    <td className="px-6 py-3.5 font-semibold text-slate-800">{h.className || h.classId}</td>
-                    <td className="px-6 py-3.5">{getStatusBadge(h.status, h.expiresAt)}</td>
+                  <tr
+                    key={h.holdId}
+                    className="hover:bg-slate-50/70 transition-colors"
+                  >
+                    <td className="px-6 py-3.5 font-mono text-xs text-slate-600">
+                      {h.holdId}
+                    </td>
+                    <td className="px-6 py-3.5 font-semibold text-slate-800">
+                      {h.className || h.classId}
+                    </td>
+                    <td className="px-6 py-3.5">
+                      {getStatusBadge(h.status, h.expiresAt)}
+                    </td>
                     <td className="px-6 py-3.5 text-xs text-slate-500">
-                      {new Date(h.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {h.status === "CONFIRMED"
+                        ? "Payment completed"
+                        : h.status === "CANCELLED"
+                          ? "Seat released"
+                          : new Date(h.expiresAt).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                     </td>
                     <td className="px-6 py-3.5 text-right">
                       {isHeld ? (
@@ -165,6 +259,13 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
                           className="px-3 py-1 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200"
                         >
                           View & Pay
+                        </button>
+                      ) : h.status === "CONFIRMED" ? (
+                        <button
+                          onClick={() => onSelectHold(h.holdId)}
+                          className="px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-lg"
+                        >
+                          View admission
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
