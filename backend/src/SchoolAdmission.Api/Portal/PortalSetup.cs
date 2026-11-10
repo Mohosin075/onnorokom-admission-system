@@ -65,10 +65,10 @@ public static class PortalSetup
         var email = config["Bootstrap:AdminEmail"]?.Trim().ToLowerInvariant();
         var password = config["Bootstrap:AdminPassword"];
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)) return;
-        PortalSecurity.Password(password);
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         if (await db.Users.AnyAsync(x => x.Email == email)) return;
+        PortalSecurity.Password(password);
         var user = new PortalUser { Email = email, Role = "Admin", EmailVerified = true };
         user.PasswordHash = scope.ServiceProvider.GetRequiredService<IPasswordHasher<PortalUser>>().HashPassword(user, password);
         db.Users.Add(user); await db.SaveChangesAsync();
@@ -79,13 +79,13 @@ public static class PortalSetup
         if (!config.GetValue<bool>("DemoAccounts:Enabled")) return;
         if (!environment.IsDevelopment()) throw new InvalidOperationException("Demo accounts are allowed only in Development.");
         var password = config["DemoAccounts:Password"] ?? throw new InvalidOperationException("A local demo password is required.");
-        PortalSecurity.Password(password);
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<PortalUser>>();
         foreach (var (email, role, name) in new[] { ("admin@demo.invalid", "Admin", "Demo administrator"), ("student@demo.invalid", "Student", "") })
         {
             if (await db.Users.AnyAsync(x => x.Email == email)) continue;
+            PortalSecurity.Password(password);
             var user = new PortalUser { Email = email, Role = role, FullName = name, EmailVerified = true };
             user.PasswordHash = hasher.HashPassword(user, password);
             db.Users.Add(user);

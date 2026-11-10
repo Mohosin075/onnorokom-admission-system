@@ -47,7 +47,7 @@ describe("authenticated admission portal", () => {
       target: { value: "isolated@example.invalid" },
     });
     fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "IsolatedPassword123" },
+      target: { value: "Test1234" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(

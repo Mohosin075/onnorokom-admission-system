@@ -18,8 +18,8 @@ public static class PortalSecurity
     public static string TokenHash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     public static void Password(string password)
     {
-        if (password.Length < 12 || password.Length > 128 || !password.Any(char.IsLetter) || !password.Any(char.IsDigit))
-            throw new ValidationException("Use a password of 12–128 characters with letters and numbers.");
+        if (password.Length < 6 || password.Length > 8 || !password.Any(char.IsLetter) || !password.Any(char.IsDigit))
+            throw new ValidationException("Use a password of 6–8 characters with letters and numbers.");
     }
     public static ClaimsPrincipal Principal(PortalUser user) => new(new ClaimsIdentity(new[] {
         new Claim(ClaimTypes.NameIdentifier, user.Id), new Claim(ClaimTypes.Email, user.Email),

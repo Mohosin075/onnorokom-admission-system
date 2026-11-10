@@ -16,12 +16,13 @@ namespace SchoolAdmission.Api.Controllers;
 public class AuthController(ApplicationDbContext db, IConfiguration config, IPasswordHasher<PortalUser> hasher, IWebHostEnvironment environment) : ControllerBase
 {
     public record Credentials([Required, EmailAddress, MaxLength(254)] string Email, [Required, MaxLength(128)] string Password);
+    public record RegistrationInput([Required, EmailAddress, MaxLength(254)] string Email, [Required, StringLength(8, MinimumLength = 6)] string Password);
     public record TokenInput([Required, MaxLength(128)] string Token);
-    public record ResetInput([Required, MaxLength(128)] string Token, [Required, MaxLength(128)] string Password);
+    public record ResetInput([Required, MaxLength(128)] string Token, [Required, StringLength(8, MinimumLength = 6)] string Password);
     public record EmailInput([Required, EmailAddress, MaxLength(254)] string Email);
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register(Credentials input, CancellationToken ct)
+    public async Task<IActionResult> Register(RegistrationInput input, CancellationToken ct)
     {
         PortalSecurity.Password(input.Password);
         if (string.IsNullOrWhiteSpace(config["Smtp:Host"]))

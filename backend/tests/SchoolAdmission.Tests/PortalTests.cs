@@ -146,7 +146,7 @@ public class PortalTests(PostgresFixture database) : IClassFixture<PostgresFixtu
         var raw=Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         using(var scope=factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();db.AccountTokens.Add(new AccountToken{Id=PortalSecurity.TokenHash(raw),UserId=user.Id,Purpose="reset",ExpiresAt=DateTime.UtcNow.AddMinutes(5)});await db.SaveChangesAsync();}
         await Csrf(recovery);
-        var input=new{token=raw,password="ChangedIsolatedPassword123!"};
+        var input=new{token=raw,password="New1234!"};
         (await recovery.PostAsJsonAsync("/auth/reset-password",input)).StatusCode.Should().Be(HttpStatusCode.OK);
         (await recovery.PostAsJsonAsync("/auth/reset-password",input)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await signedIn.GetAsync("/auth/me")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);

@@ -10,7 +10,7 @@ Optional local preview accounts can be enabled explicitly using `DEMO_ACCOUNTS_E
 
 1. Copy `.env.example` to `.env` if `.env` does not already exist.
 2. Set a strong random `POSTGRES_PASSWORD`.
-3. Supply the actual institution name and first administrator email/password. Passwords need at least 12 characters, including letters and numbers. No administrator is created when these settings are absent.
+3. Supply the actual institution name and first administrator email/password. New passwords must contain 6–8 characters, including letters and numbers. Existing accounts can still sign in with their original passwords. No administrator is created when these settings are absent.
 4. Configure authenticated SMTP to enable applicant registration and verification emails.
 5. Run `docker compose up --build -d --wait`.
 

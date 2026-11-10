@@ -258,15 +258,15 @@ function Authentication({ login }: { login: (a: Account) => void }) {
                 autoComplete={
                   mode === "login" ? "current-password" : "new-password"
                 }
-                minLength={mode === "login" ? 1 : 12}
-                maxLength={128}
+                minLength={mode === "login" ? 1 : 6}
+                maxLength={mode === "login" ? 128 : 8}
                 required
               />
             </Field>
           )}
           {["register", "reset"].includes(mode) && (
             <p className="hint">
-              At least 12 characters, including letters and numbers.
+              Use 6–8 characters, including letters and numbers.
             </p>
           )}
           <button className="primary wide" disabled={busy}>
