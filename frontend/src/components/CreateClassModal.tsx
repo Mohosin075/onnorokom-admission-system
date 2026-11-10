@@ -1,3 +1,4 @@
+import { useLanguage } from "../context/language-store";
 import React, { useEffect, useRef, useState } from "react";
 import { api, getErrorMessage } from "../services/api";
 import { X, Layers, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -13,6 +14,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
   onClose,
   onClassCreated,
 }) => {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [totalSeats, setTotalSeats] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
@@ -66,14 +68,16 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
     setSuccess(null);
 
     if (!name.trim()) {
-      setError("Class and Shift name is required.");
+      setError(t("Class and Shift name is required."));
       return;
     }
 
     const seats = Number(totalSeats);
     if (!Number.isInteger(seats) || seats <= 0 || seats > 2147483647) {
       setError(
-        "Total seats must be a positive whole number within the supported range.",
+        t(
+          "Total seats must be a positive whole number within the supported range.",
+        ),
       );
       return;
     }
@@ -85,7 +89,9 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
         totalSeats: seats,
       });
       if (!mounted.current) return;
-      setSuccess(`Class "${name.trim()}" created successfully!`);
+      setSuccess(
+        t('Class "{name}" created successfully!', { name: name.trim() }),
+      );
       setName("");
       setTotalSeats("");
       onClassCreated();
@@ -112,7 +118,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
-          aria-label="Close"
+          aria-label={t("Close")}
         >
           <X className="w-5 h-5" />
         </button>
@@ -126,10 +132,10 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
               id="create-class-title"
               className="text-lg font-bold text-slate-900"
             >
-              Add a class
+              {t("Add a class")}
             </h2>
             <p className="text-xs text-slate-500">
-              Use a separate class for each shift.
+              {t("Use a separate class for each shift.")}
             </p>
           </div>
         </div>
@@ -137,7 +143,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start space-x-2 text-sm text-red-700">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <span>{error}</span>
+            <span>{t(error)}</span>
           </div>
         )}
 
@@ -154,7 +160,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
               htmlFor="class-name"
               className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1"
             >
-              Class name and shift
+              {t("Class name and shift")}
             </label>
             <input
               id="class-name"
@@ -162,7 +168,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Class 6 - Morning Shift"
+              placeholder={t("e.g. Class 6 - Morning Shift")}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               required
             />
@@ -173,7 +179,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
               htmlFor="total-seats"
               className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1"
             >
-              Number of seats
+              {t("Number of seats")}
             </label>
             <input
               id="total-seats"
@@ -187,7 +193,7 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
                   e.target.value === "" ? "" : Number(e.target.value),
                 )
               }
-              placeholder="e.g. 120"
+              placeholder={t("e.g. 120")}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               required
             />
@@ -199,14 +205,14 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
             >
-              Cancel
+              {t("Cancel")}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-md shadow-indigo-200 disabled:opacity-50"
             >
-              {loading ? "Adding class..." : "Add class"}
+              {loading ? t("Adding class...") : t("Add class")}
             </button>
           </div>
         </form>

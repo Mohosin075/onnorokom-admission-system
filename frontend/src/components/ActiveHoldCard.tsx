@@ -1,3 +1,4 @@
+import { useLanguage } from "../context/language-store";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { HoldItem, ClassItem } from "../types";
 import { useStudent } from "../context/student-store";
@@ -14,9 +15,12 @@ import {
 interface ActiveHoldCardProps {
   holdId: string;
   classes: ClassItem[];
-  onHoldUpdated: () => void;
+  onHoldUpdated: (hold?: HoldItem) => void;
   onHoldDismissed: () => void;
   onError: (msg: string) => void;
+  onStatusChange?: (hold: HoldItem) => void;
+  onBrowseClasses?: () => void;
+  onViewApplications?: () => void;
 }
 
 export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
@@ -25,7 +29,11 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
   onHoldUpdated,
   onHoldDismissed,
   onError,
+  onStatusChange,
+  onBrowseClasses,
+  onViewApplications,
 }) => {
+  const { t } = useLanguage();
   const { studentId } = useStudent();
   const [hold, setHold] = useState<HoldItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,9 +46,11 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
   const mounted = useRef(false);
   const fetching = useRef(false);
   const errorHandler = useRef(onError);
+  const statusHandler = useRef(onStatusChange);
   useEffect(() => {
     errorHandler.current = onError;
-  }, [onError]);
+    statusHandler.current = onStatusChange;
+  }, [onError, onStatusChange]);
 
   // Fetch hold details
   const fetchHold = useCallback(async () => {
@@ -58,6 +68,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
         ),
       );
       setHold(data);
+      statusHandler.current?.(data);
     } catch (err) {
       if (mounted.current && version === requestVersion.current) {
         const message = getErrorMessage(err);
@@ -116,7 +127,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
       setHold((current) =>
         current ? { ...current, status: confirmation.status } : current,
       );
-      onHoldUpdated();
+      onHoldUpdated({ ...hold, status: confirmation.status });
     } catch (err) {
       if (mounted.current) onError(getErrorMessage(err));
     } finally {
@@ -147,7 +158,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
       <div className="bg-white p-6 rounded-2xl shadow-md border border-slate-200 animate-pulse flex items-center justify-center">
         <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mr-3"></div>
         <span className="text-sm text-slate-500">
-          Checking active application...
+          {t("Checking active application...")}
         </span>
       </div>
     );
@@ -159,22 +170,24 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
         role="alert"
         className="p-4 bg-rose-50 rounded-xl border border-rose-200"
       >
-        <p>{loadError || "Application could not be loaded."}</p>
+        <p>{t(loadError || "Application could not be loaded.")}</p>
         <button
           onClick={() => void fetchHold()}
           className="mt-2 mr-4 underline"
         >
-          Try again
+          {t("Try again")}
         </button>
         <button onClick={onHoldDismissed} className="mt-2 underline">
-          Dismiss Application
+          {t("Dismiss Application")}
         </button>
       </div>
     );
 
   const currentClass = classes.find((c) => c.id === hold.classId);
   const className =
-    hold.className || currentClass?.name || `Class ID: ${hold.classId}`;
+    hold.className ||
+    currentClass?.name ||
+    t("Class ID: {id}", { id: hold.classId });
 
   // Check if effectively expired
   const isExpired =
@@ -206,19 +219,27 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
         <div className="space-y-1.5">
           <div className="flex items-center space-x-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Your selected application
+              {t("Your selected application")}
             </span>
           </div>
 
           <h3 className="text-xl font-extrabold text-slate-900">{className}</h3>
           <p className="admission-booking-help">
             {isConfirmed
-              ? "Your admission is complete. You can find it in My applications whenever you return."
+              ? t(
+                  "Your admission is complete. You can find it in My applications whenever you return.",
+                )
               : isExpired
-                ? "The payment deadline has passed. This seat is no longer reserved for you. Choose a class below to try again."
+                ? t(
+                    "The payment deadline has passed. This seat is no longer reserved for you. Choose a class below to try again.",
+                  )
                 : isCancelled
-                  ? "You cancelled this application. You can choose another class below."
-                  : "We are keeping this seat for you until the timer ends. Pay the admission fee to finish. This is a practice payment; no real money is charged."}
+                  ? t(
+                      "You cancelled this application. You can choose another class below.",
+                    )
+                  : t(
+                      "We are keeping this seat for you until the timer ends. Pay the admission fee to finish. This is a practice payment; no real money is charged.",
+                    )}
           </p>
 
           <div
@@ -228,32 +249,32 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
             {isConfirmed && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                Admission Confirmed
+                {t("Admission Confirmed")}
               </span>
             )}
 
             {isHeld && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-bold text-xs border border-indigo-200">
                 <Clock className="w-3.5 h-3.5 mr-1 text-indigo-600" />
-                Waiting for your payment
+                {t("Waiting for your payment")}
               </span>
             )}
 
             {isExpired && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-xs border border-rose-200">
                 <AlertTriangle className="w-3.5 h-3.5 mr-1 text-rose-600" />
-                Payment deadline passed
+                {t("Payment deadline passed")}
               </span>
             )}
 
             {isCancelled && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-slate-700 font-bold text-xs">
-                Cancelled
+                {t("Cancelled")}
               </span>
             )}
           </div>
           <details className="admission-reference">
-            <summary>Application reference</summary>
+            <summary>{t("Application reference")}</summary>
             <span>ID: {hold.holdId}</span>
           </details>
         </div>
@@ -263,7 +284,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
           <div className="bg-white/90 backdrop-blur-sm border border-indigo-200 rounded-2xl p-4 text-center min-w-[180px] shadow-sm">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5 flex items-center justify-center space-x-1">
               <Clock className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Pay within</span>
+              <span>{t("Pay within")}</span>
             </div>
             <div
               className={`text-3xl font-mono font-black ${remainingSeconds < 60 ? "text-rose-600 animate-pulse" : "text-indigo-600"}`}
@@ -271,7 +292,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
               {timeFormatted}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Your seat is kept until this timer ends.
+              {t("Your seat is kept until this timer ends.")}
             </p>
           </div>
         )}
@@ -280,9 +301,11 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
           <div className="bg-white/90 border border-emerald-200 rounded-2xl p-4 text-center min-w-[180px] shadow-sm">
             <ShieldCheck className="w-8 h-8 text-emerald-600 mx-auto mb-1" />
             <div className="text-xs font-bold text-emerald-900">
-              Your seat is confirmed
+              {t("Your seat is confirmed")}
             </div>
-            <div className="text-[11px] text-slate-500">Payment completed</div>
+            <div className="text-[11px] text-slate-500">
+              {t("Payment completed")}
+            </div>
           </div>
         )}
 
@@ -301,10 +324,10 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
             >
               <CreditCard className="w-4 h-4 mr-2" />
               {actionLoading
-                ? "Please wait..."
+                ? t("Please wait...")
                 : isExpired
-                  ? "Reservation expired"
-                  : "Pay Admission Fee"}
+                  ? t("Reservation expired")
+                  : t("Pay Admission Fee")}
             </button>
           )}
 
@@ -316,18 +339,23 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
               className="inline-flex items-center justify-center px-4 py-2.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 text-sm font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-40"
             >
               <XCircle className="w-4 h-4 mr-1.5" />
-              Cancel application
+              {t("Cancel application")}
             </button>
           )}
 
           {(isExpired || isCancelled || isConfirmed) && (
-            <a
-              href={isConfirmed ? "#my-applications" : "#class-directory"}
-              onClick={onHoldDismissed}
+            <button
+              onClick={
+                isConfirmed
+                  ? (onViewApplications ?? onHoldDismissed)
+                  : (onBrowseClasses ?? onHoldDismissed)
+              }
               className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
             >
-              {isConfirmed ? "See my applications" : "Choose a class again"}
-            </a>
+              {isConfirmed
+                ? t("See my applications")
+                : t("Choose a class again")}
+            </button>
           )}
         </div>
       </div>
@@ -335,13 +363,14 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
         <div
           className="admission-cancel-prompt"
           role="group"
-          aria-label="Cancel reservation confirmation"
+          aria-label={t("Cancel reservation confirmation")}
         >
           <div>
-            <strong>Cancel this application?</strong>
+            <strong>{t("Cancel this application?")}</strong>
             <p>
-              We will stop keeping this seat for you. You can apply again if a
-              seat is available.
+              {t(
+                "We will stop keeping this seat for you. You can apply again if a seat is available.",
+              )}
             </p>
           </div>
           <div>
@@ -350,14 +379,16 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
               onClick={() => setCancelPrompt(false)}
               className="admission-secondary"
             >
-              Keep my seat
+              {t("Keep my seat")}
             </button>
             <button
               disabled={actionLoading}
               onClick={() => void handleCancelHold()}
               className="admission-danger"
             >
-              {actionLoading ? "Cancelling..." : "Yes, cancel application"}
+              {actionLoading
+                ? t("Cancelling...")
+                : t("Yes, cancel application")}
             </button>
           </div>
         </div>

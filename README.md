@@ -21,13 +21,24 @@ The app does not seed example classes or admissions. Use **Create Class (Admin)*
 
 ## Assignment flow
 
-1. Enter the student's **17-digit birth registration number** in the header. No login or email verification is needed.
-2. Click **Apply Now** for a class. A successful application immediately holds one seat and shows a countdown.
-3. Click **Pay Admission Fee** to simulate payment and confirm admission. No money is charged.
-4. **Cancel** releases an unconfirmed reservation. When the timer expires, the seat becomes available automatically and the payment button is disabled.
-5. **My Applications** shows this student's held, confirmed, expired and cancelled applications. Refreshing or reopening the browser restores the selected identity and application through localStorage and server history.
+The **New student admission** button is always visible in the student header, including while viewing an older application. It opens a blank student-details form, followed by class selection, review, reservation and payment. Starting another student's form clears the local selection without cancelling any earlier reservation or admission; those remain available through **My applications** with the earlier student's number. Saved-history responses do not interrupt a manually started form.
+
+Entering a complete registration number checks existing applications before continuing. A held seat offers **Continue payment**; a confirmed admission offers **View admission** and **Choose another class**. Expired/cancelled applications do not block reapplication. Lookup failures are retryable and prevent proceeding without a check; late responses for an edited number are ignored. A duplicate conflict caused by another browser refreshes this check and offers the existing application instead of asking the user to keep retrying the reservation.
+
+The public **Browse classes** cards always offer **Apply Now** when seats are available, regardless of a previously selected student's admissions. Choosing a class opens a blank student-details form. Student-specific **View admission** and **Continue payment** actions appear after entering the number inside enrollment or in **My applications**, rather than replacing the public catalog's application button.
+
+1. Open **Browse classes**, choose a class and click **Apply Now** to start the guided enrollment form. No login or email verification is needed.
+2. In **Student details**, enter the student's **17-digit birth registration number**. This field belongs to the enrollment form; the header has no identity input. Continue to **Review and reserve** to check the class and identity. Going back to edit these details does not reserve a seat.
+3. Click **Reserve seat and continue**. A successful request immediately holds one seat, starts its countdown and opens the payment step.
+4. Click **Pay Admission Fee** to simulate payment and reach **Confirmation**. No money is charged.
+5. **Cancel** releases an unconfirmed reservation. When the timer expires, the seat becomes available automatically and the payment button is disabled.
+6. **Browse classes** and **My applications** are keyboard-accessible tabs with separate panels, without URL hashes. Enter a birth registration number inside **My applications** to find that student's held, confirmed, expired and cancelled applications. Switching tabs preserves the enrollment step; refreshing or reopening the browser restores the selected identity and reserved application through localStorage and server history. Returning to the catalog keeps an unpaid reservation until its deadline.
 
 Seat counts refresh every three seconds. Application/history views poll every four seconds, while the local countdown updates every second. The server decides expiry and capacity.
+
+Use **Language / ভাষা** in the header to switch the assessment workspace between English and Bangla. The choice is remembered on this browser. The enrollment form highlights your current step and provides Back/Continue actions; the payment notice makes clear that no money is charged. On phones, application history becomes labelled cards. Failed requests show a retry action instead of claiming there are no classes or applications; previously loaded history remains visible with a warning when refresh fails.
+
+**View admission** opens a modal on the current tab with the confirmed class, student number, application reference and payment status. Close it with Done, the close button, Escape or the backdrop to return to the same view.
 
 ## API contract
 

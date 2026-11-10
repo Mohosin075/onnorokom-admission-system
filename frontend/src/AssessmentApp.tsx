@@ -1,105 +1,107 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { LanguageProvider } from "./context/language";
+import { useLanguage } from "./context/language-store";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type KeyboardEvent,
+} from "react";
 import { StudentProvider } from "./context/StudentContext";
 import { useStudent } from "./context/student-store";
 import { Navbar } from "./components/Navbar";
 import { ClassList } from "./components/ClassList";
-import { ActiveHoldCard } from "./components/ActiveHoldCard";
+import { EnrollmentWizard } from "./components/EnrollmentWizard";
+import { StudentIdentityInput } from "./components/StudentIdentityInput";
 import { MyApplications } from "./components/MyApplications";
 import { CreateClassModal } from "./components/CreateClassModal";
+import { AdmissionDetailsModal } from "./components/AdmissionDetailsModal";
 import { api, getErrorMessage } from "./services/api";
 import type { ClassItem, HoldItem } from "./types";
+import { Check, Clock3, Layers, Users } from "lucide-react";
 import "./assessment.css";
-import {
-  AlertCircle,
-  ArrowUpRight,
-  Check,
-  Clock3,
-  Layers,
-  Users,
-  X,
-} from "lucide-react";
 
-const MainDashboard: React.FC = () => {
-  const { studentId, isValidStudentId, activeHoldId, setActiveHoldId } =
+type Enrollment = {
+  classId: string | null;
+  holdId: string | null;
+  owner: string | null;
+  session: number;
+};
+type StudentTab = "browse" | "applications";
+
+function MainDashboard() {
+  const { t, language } = useLanguage();
+  const { studentId, setStudentId, activeHoldId, setActiveHoldId } =
     useStudent();
   const [workspace, setWorkspace] = useState<"student" | "admin">("student");
+  const [tab, setTab] = useState<StudentTab>("browse");
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(() =>
+    activeHoldId
+      ? { classId: null, holdId: activeHoldId, owner: studentId, session: 0 }
+      : null,
+  );
+  const enrollmentSession = useRef(0);
+  const enrollmentSection = useRef<HTMLDivElement>(null);
+  const restoredIdentity = useRef<string | null>(null);
+  const manualNavigationIdentity = useRef<string | null>(null);
+  const manualEnrollmentActive = useRef(false);
+  const currentIdentity = useRef(studentId);
+  const currentHoldId = useRef(activeHoldId);
+  useEffect(() => {
+    currentIdentity.current = studentId;
+    currentHoldId.current = activeHoldId;
+  }, [studentId, activeHoldId]);
+  const enrollmentVisible = Boolean(
+    enrollment && (!enrollment.owner || enrollment.owner === studentId),
+  );
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [applicationSnapshot, setApplicationSnapshot] = useState<{
     studentId: string;
     holds: HoldItem[];
   }>({ studentId: "", holds: [] });
-  const handleApplicationsLoaded = useCallback(
-    (identity: string, holds: HoldItem[]) => {
-      setApplicationSnapshot({ studentId: identity, holds });
-    },
-    [],
-  );
-  const [loadingClasses, setLoadingClasses] = useState<boolean>(true);
-  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [loadingClasses, setLoadingClasses] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [admissionDetails, setAdmissionDetails] = useState<{
+    studentId: string;
+    hold: HoldItem;
+  } | null>(null);
   const [refreshApplicationsTrigger, setRefreshApplicationsTrigger] =
-    useState<number>(0);
-  const bookingSection = useRef<HTMLElement>(null);
-  const focusBooking = useRef(false);
+    useState(0);
   const classRequest = useRef(0);
   const classFetching = useRef(false);
+  const studentApplications =
+    applicationSnapshot.studentId === studentId
+      ? applicationSnapshot.holds
+      : [];
 
-  // Fetch classes list
-  const fetchClasses = useCallback(async (isBackground = false) => {
+  const fetchClasses = useCallback(async (background = false) => {
     if (classFetching.current) return;
     classFetching.current = true;
     const request = ++classRequest.current;
-    if (!isBackground) setLoadingClasses(true);
+    if (!background) setLoadingClasses(true);
     try {
       const data = await api.getClasses();
       if (request !== classRequest.current) return;
       setClasses(data);
       setConnectionError(null);
       setLastUpdated(new Date().toLocaleTimeString());
-    } catch (err) {
+    } catch (error) {
       if (request === classRequest.current)
-        setConnectionError(getErrorMessage(err));
+        setConnectionError(getErrorMessage(error));
     } finally {
       classFetching.current = false;
       if (request === classRequest.current) setLoadingClasses(false);
     }
   }, []);
 
-  // Auto-restore active hold from server if valid student ID is set but activeHoldId is empty
-  useEffect(() => {
-    let disposed = false;
-    if (!activeHoldId && studentId && /^\d{17}$/.test(studentId)) {
-      api
-        .getMyHolds(studentId)
-        .then((myHolds) => {
-          if (disposed) return;
-          const currentActive = myHolds.find(
-            (h) =>
-              h.status === "HELD" &&
-              new Date(h.expiresAt).getTime() > Date.now(),
-          );
-          if (currentActive) {
-            setActiveHoldId(currentActive.holdId);
-          }
-        })
-        .catch((error: unknown) => {
-          if (!disposed) setGlobalError(getErrorMessage(error));
-        });
-    }
-    return () => {
-      disposed = true;
-    };
-  }, [studentId, activeHoldId, setActiveHoldId]);
-
-  // Initial fetch and auto-refresh polling every 3 seconds (Mandatory UI Rule 3)
   useEffect(() => {
     const initial = setTimeout(() => {
-      void fetchClasses(false);
+      void fetchClasses();
     }, 0);
     const interval = setInterval(() => {
-      fetchClasses(true);
+      void fetchClasses(true);
     }, 3000);
     return () => {
       clearTimeout(initial);
@@ -107,300 +109,429 @@ const MainDashboard: React.FC = () => {
     };
   }, [fetchClasses]);
 
+  const handleApplicationsLoaded = useCallback(
+    (identity: string, holds: HoldItem[]) => {
+      if (identity !== currentIdentity.current) return;
+      setApplicationSnapshot({ studentId: identity, holds });
+      // Restore once per identity, so returning to the catalog never reopens the wizard.
+      if (restoredIdentity.current === identity) return;
+      restoredIdentity.current = identity;
+      if (
+        currentHoldId.current ||
+        manualEnrollmentActive.current ||
+        manualNavigationIdentity.current === identity
+      )
+        return;
+      const saved = holds.find(
+        (hold) =>
+          hold.status === "HELD" &&
+          new Date(hold.expiresAt).getTime() > Date.now(),
+      );
+      if (saved) {
+        setActiveHoldId(saved.holdId);
+        setEnrollment({
+          classId: saved.classId,
+          holdId: saved.holdId,
+          owner: identity,
+          session: ++enrollmentSession.current,
+        });
+      }
+    },
+    [setActiveHoldId],
+  );
+
   useEffect(() => {
-    if (!focusBooking.current || !activeHoldId || workspace !== "student")
-      return;
-    bookingSection.current?.focus({ preventScroll: true });
-    bookingSection.current?.scrollIntoView?.({
-      behavior: "smooth",
-      block: "start",
-    });
-    focusBooking.current = false;
-  }, [activeHoldId, workspace]);
-
-  const handleHoldCreated = (holdId: string) => {
-    focusBooking.current = true;
-    setActiveHoldId(holdId);
-    setRefreshApplicationsTrigger((prev) => prev + 1);
-    fetchClasses(true);
-  };
-
-  const handleHoldUpdated = () => {
-    fetchClasses(true);
-    setRefreshApplicationsTrigger((prev) => prev + 1);
-  };
-
-  const handleHoldDismissed = () => {
-    setActiveHoldId(null);
-    fetchClasses(true);
-    setRefreshApplicationsTrigger((prev) => prev + 1);
-  };
-
-  const selectApplication = (holdId: string) => {
-    focusBooking.current = true;
-    setActiveHoldId(holdId);
-    if (activeHoldId === holdId) {
-      bookingSection.current?.focus({ preventScroll: true });
-      bookingSection.current?.scrollIntoView?.({
+    if (enrollmentVisible && tab === "browse" && workspace === "student")
+      enrollmentSection.current?.scrollIntoView?.({
         behavior: "smooth",
         block: "start",
       });
-      focusBooking.current = false;
+  }, [enrollmentVisible, enrollment?.session, tab, workspace]);
+
+  const updateApplication = (updated?: HoldItem) => {
+    if (updated)
+      setApplicationSnapshot((snapshot) => ({
+        studentId,
+        holds: [
+          ...(snapshot.studentId === studentId
+            ? snapshot.holds.filter((hold) => hold.holdId !== updated.holdId)
+            : []),
+          updated,
+        ],
+      }));
+    void fetchClasses(true);
+    setRefreshApplicationsTrigger((value) => value + 1);
+  };
+  const browseClasses = () => {
+    manualEnrollmentActive.current = false;
+    manualNavigationIdentity.current = studentId;
+    setEnrollment(null);
+    setTab("browse");
+  };
+  const startEnrollment = (item: ClassItem) => {
+    manualEnrollmentActive.current = true;
+    manualNavigationIdentity.current = "";
+    setStudentId("");
+    setActiveHoldId(null);
+    setAdmissionDetails(null);
+    setEnrollment({
+      classId: item.id,
+      holdId: null,
+      owner: null,
+      session: ++enrollmentSession.current,
+    });
+    setTab("browse");
+  };
+  const startNewStudent = () => {
+    manualEnrollmentActive.current = true;
+    manualNavigationIdentity.current = "";
+    setStudentId("");
+    setActiveHoldId(null);
+    setAdmissionDetails(null);
+    setEnrollment({
+      classId: null,
+      holdId: null,
+      owner: null,
+      session: ++enrollmentSession.current,
+    });
+    setTab("browse");
+    setWorkspace("student");
+  };
+  const selectApplication = (holdId: string) => {
+    manualNavigationIdentity.current = studentId;
+    const saved = studentApplications.find((hold) => hold.holdId === holdId);
+    if (saved?.status === "CONFIRMED") {
+      setAdmissionDetails({ studentId, hold: saved });
+      return;
     }
+    setActiveHoldId(holdId);
+    setEnrollment({
+      classId: saved?.classId ?? null,
+      holdId,
+      owner: studentId,
+      session: ++enrollmentSession.current,
+    });
+    setTab("browse");
+  };
+  const moveTab = (event: KeyboardEvent<HTMLDivElement>) => {
+    const tabs = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+    );
+    const current = tabs.indexOf(event.target as HTMLButtonElement);
+    if (current < 0) return;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : event.key === "ArrowRight"
+            ? (current + 1) % tabs.length
+            : event.key === "ArrowLeft"
+              ? (current + tabs.length - 1) % tabs.length
+              : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    setTab(next === 0 ? "browse" : "applications");
+    tabs[next].focus();
   };
 
   return (
-    <div className="admission-shell">
+    <div className="admission-shell" lang={language}>
       <a className="admission-skip" href="#main-content">
-        Skip to content
+        {t("Skip to content")}
       </a>
       <Navbar
+        onNewStudent={startNewStudent}
+        onFindApplications={() => {
+          setWorkspace("student");
+          setTab("applications");
+        }}
         workspace={workspace}
         onWorkspaceChange={setWorkspace}
         onOpenCreateClass={() => setIsCreateModalOpen(true)}
       />
-
-      {/* Global Error Banner */}
-      {globalError && (
-        <div className="admission-alert-wrap">
-          <div
-            role="alert"
-            className="bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-sm"
-          >
-            <div className="flex items-center space-x-2 text-sm">
-              <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
-              <span>{globalError}</span>
-            </div>
-            <button
-              aria-label="Dismiss error"
-              onClick={() => setGlobalError(null)}
-              className="text-rose-500 hover:text-rose-700 p-1 rounded-lg"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content Area */}
       <main id="main-content" className="admission-main">
         <section
-          aria-label="Workspace introduction"
-          className="admission-simple-intro"
+          aria-label={t("Workspace introduction")}
+          className="admission-simple-intro admission-tab-intro"
         >
           <div>
             <h1>
               {workspace === "student"
-                ? "Apply for admission"
-                : "Manage classes and seats"}
+                ? t("Apply for admission")
+                : t("Manage classes and seats")}
             </h1>
             <p>
               {workspace === "student"
-                ? "Enter your birth registration number, choose a class, then pay the admission fee to confirm your seat."
-                : "Add a class and set its total seats. Seat counts update automatically as students apply."}
+                ? t(
+                    "For a new student, select New student admission. To return to an application, open My applications.",
+                  )
+                : t(
+                    "Add a class and set its total seats. Seat counts update automatically as students apply.",
+                  )}
             </p>
           </div>
-          {workspace === "student" && (
-            <div className="admission-next-action">
-              {!isValidStudentId ? (
-                <button
-                  className="admission-primary"
-                  onClick={() => {
-                    const input = document.getElementById("student-id");
-                    input?.focus({ preventScroll: true });
-                    input?.scrollIntoView?.({
-                      behavior: "smooth",
-                      block: "center",
-                    });
-                  }}
-                >
-                  Start with your birth registration number
-                </button>
-              ) : (
-                <a
-                  className="admission-primary"
-                  href={
-                    activeHoldId ? "#active-application" : "#class-directory"
-                  }
-                >
-                  {activeHoldId ? "View your application" : "Choose a class"}
-                  <ArrowUpRight size={16} />
-                </a>
-              )}
-              <small>
-                {!isValidStudentId
-                  ? "Use the 17-digit number on your birth certificate. No account needed."
-                  : "Use the same number each time to find your applications."}
-              </small>
-            </div>
-          )}
-          {workspace === "student" ? (
-            <ol className="admission-simple-steps" aria-label="How to apply">
-              <li>
-                <span>1</span>Enter your number
-              </li>
-              <li>
-                <span>2</span>Choose a class
-              </li>
-              <li>
-                <span>3</span>Pay to confirm
-              </li>
-            </ol>
-          ) : (
+          {workspace === "admin" && (
             <p className="admission-public-note">
-              This public assessment workspace does not require an admin login.
+              {t(
+                "This public assessment workspace does not require an admin login.",
+              )}
             </p>
           )}
         </section>
+        {workspace === "student" && (
+          <p className="admission-demo-notice">
+            {t(
+              "Demo payment only. No money will be charged. Paying confirms your reserved seat immediately.",
+            )}
+          </p>
+        )}
         {workspace === "admin" && (
           <dl className="admission-metrics">
             {[
               {
-                label: "Classes",
+                label: t("Classes"),
                 value: classes.length,
                 icon: Layers,
                 tone: "neutral",
               },
               {
-                label: "Available seats",
-                value: classes.reduce((n, c) => n + c.availableSeats, 0),
+                label: t("Available seats"),
+                value: classes.reduce(
+                  (sum, item) => sum + item.availableSeats,
+                  0,
+                ),
                 icon: Users,
                 tone: "green",
               },
               {
-                label: "Waiting for payment",
-                value: classes.reduce((n, c) => n + c.heldSeats, 0),
+                label: t("Waiting for payment"),
+                value: classes.reduce((sum, item) => sum + item.heldSeats, 0),
                 icon: Clock3,
                 tone: "amber",
               },
               {
-                label: "Students admitted",
-                value: classes.reduce((n, c) => n + c.confirmedSeats, 0),
+                label: t("Students admitted"),
+                value: classes.reduce(
+                  (sum, item) => sum + item.confirmedSeats,
+                  0,
+                ),
                 icon: Check,
                 tone: "green",
               },
             ].map(({ label, value, icon: Icon, tone }) => (
-              <div key={label} className={"admission-metric " + tone}>
+              <div key={label} className={`admission-metric ${tone}`}>
                 <Icon size={19} />
                 <dt>{label}</dt>
-                <dd>{loadingClasses ? "\u2014" : value}</dd>
+                <dd>{loadingClasses ? "—" : value}</dd>
               </div>
             ))}
           </dl>
         )}
         <div className="admission-content-nav">
-          <nav aria-label="Page sections">
-            <a href="#class-directory">
-              {workspace === "student" ? "Browse classes" : "Class directory"}
-            </a>
-            {workspace === "student" && (
-              <a href="#my-applications">
-                My applications <ArrowUpRight size={13} />
-              </a>
-            )}
-          </nav>
+          <div
+            role="tablist"
+            aria-label={t("Admission views")}
+            onKeyDown={moveTab}
+            hidden={workspace !== "student"}
+          >
+            <button
+              role="tab"
+              id="browse-tab"
+              aria-selected={tab === "browse"}
+              aria-controls="browse-panel"
+              tabIndex={tab === "browse" ? 0 : -1}
+              onClick={() => setTab("browse")}
+            >
+              {t("Browse classes")}
+            </button>
+            <button
+              role="tab"
+              id="applications-tab"
+              aria-selected={tab === "applications"}
+              aria-controls="applications-panel"
+              tabIndex={tab === "applications" ? 0 : -1}
+              onClick={() => setTab("applications")}
+            >
+              {t("My applications")}
+            </button>
+          </div>
+          {workspace === "admin" && <strong>{t("Class directory")}</strong>}
           <span>
             {connectionError
-              ? "Connection interrupted"
+              ? t("Connection interrupted")
               : lastUpdated
-                ? "Updated " + lastUpdated
-                : "Connecting…"}
+                ? t("Updated {time}", { time: lastUpdated })
+                : t("Connecting…")}
           </span>
         </div>
         {connectionError && (
-          <div
-            role="alert"
-            className="p-4 rounded-xl bg-amber-50 text-amber-900 border border-amber-200"
-          >
-            {connectionError} Seat counts may be out of date. Please wait for
-            the connection to return before applying.
-            {lastUpdated && <span> Last updated: {lastUpdated}.</span>}
+          <div role="alert" className="admission-history-error">
+            {t(connectionError)}{" "}
+            {t(
+              "Seat counts may be out of date. Please wait for the connection to return before applying.",
+            )}
+            {lastUpdated && (
+              <span> {t("Last updated: {time}.", { time: lastUpdated })}</span>
+            )}
             <button
               className="admission-retry"
               onClick={() => void fetchClasses(true)}
             >
-              Try again
+              {t("Try again")}
             </button>
           </div>
         )}
-        {/* Active Application / Countdown Screen */}
-        {workspace === "student" && activeHoldId && (
+
+        <div hidden={workspace !== "student"}>
           <section
-            id="active-application"
-            ref={bookingSection}
-            tabIndex={-1}
-            aria-label="Active Application Status"
+            role="tabpanel"
+            id="browse-panel"
+            aria-labelledby="browse-tab"
+            hidden={tab !== "browse"}
+            tabIndex={0}
           >
-            <ActiveHoldCard
-              key={`${studentId}:${activeHoldId}`}
-              holdId={activeHoldId}
-              classes={classes}
-              onHoldUpdated={handleHoldUpdated}
-              onHoldDismissed={handleHoldDismissed}
-              onError={(msg) => setGlobalError(msg)}
-            />
+            <div ref={enrollmentSection}>
+              {enrollmentVisible && enrollment && (
+                <EnrollmentWizard
+                  key={enrollment.session}
+                  classId={enrollment.classId}
+                  initialHoldId={enrollment.holdId}
+                  classes={classes}
+                  classesLoading={loadingClasses}
+                  connected={!connectionError}
+                  onReserved={(hold) => {
+                    setActiveHoldId(hold.holdId);
+                    setEnrollment((current) =>
+                      current
+                        ? { ...current, holdId: hold.holdId, owner: studentId }
+                        : current,
+                    );
+                    updateApplication(hold);
+                  }}
+                  onUpdated={updateApplication}
+                  onCancelled={() => {
+                    setActiveHoldId(null);
+                    browseClasses();
+                    updateApplication();
+                  }}
+                  onBrowse={browseClasses}
+                  onViewApplications={() => setTab("applications")}
+                  onViewAdmission={(hold) =>
+                    setAdmissionDetails({ studentId, hold })
+                  }
+                />
+              )}
+            </div>
+            <div hidden={enrollmentVisible}>
+              {activeHoldId && (
+                <div className="admission-resume-notice">
+                  <p>
+                    {t("You have a saved application. View its latest status.")}
+                  </p>
+                  <button
+                    className="admission-secondary"
+                    onClick={() => selectApplication(activeHoldId)}
+                  >
+                    {t("View your application")}
+                  </button>
+                </div>
+              )}
+              <section aria-label={t("Class and Shifts List")}>
+                <ClassList
+                  connected={!connectionError}
+                  classes={classes}
+                  loading={loadingClasses}
+                  onStartEnrollment={startEnrollment}
+                />
+              </section>
+            </div>
           </section>
-        )}
-
-        {/* Classes Table / Seat Status Screen */}
-        <section id="class-directory" aria-label="Class and Shifts List">
-          <ClassList
-            key={`${workspace}:${studentId}`}
-            management={workspace === "admin"}
-            applications={
-              applicationSnapshot.studentId === studentId
-                ? applicationSnapshot.holds
-                : []
-            }
-            onSelectHold={selectApplication}
-            connected={!connectionError}
-            classes={classes}
-            loading={loadingClasses}
-            onHoldCreated={handleHoldCreated}
-            onError={(msg) => setGlobalError(msg)}
-          />
-        </section>
-
-        {/* My Applications History Screen */}
-        {workspace === "student" && (
-          <section id="my-applications" aria-label="My Applications History">
-            <MyApplications
-              onApplicationsLoaded={handleApplicationsLoaded}
-              key={studentId}
-              onSelectHold={selectApplication}
-              refreshTrigger={refreshApplicationsTrigger}
+          <section
+            role="tabpanel"
+            id="applications-panel"
+            aria-labelledby="applications-tab"
+            hidden={tab !== "applications"}
+            tabIndex={0}
+          >
+            {tab === "applications" && workspace === "student" && (
+              <div className="admission-application-lookup">
+                <h2>{t("Find your applications")}</h2>
+                <p>
+                  {t(
+                    "Enter the birth registration number used for your application. Your applications will appear below.",
+                  )}
+                </p>
+                <StudentIdentityInput id="history-student-id" />
+              </div>
+            )}
+            <section
+              id="my-applications"
+              aria-label={t("My Applications History")}
+            >
+              <MyApplications
+                key={studentId}
+                onApplicationsLoaded={handleApplicationsLoaded}
+                onSelectHold={selectApplication}
+                onBrowseClasses={browseClasses}
+                refreshTrigger={refreshApplicationsTrigger}
+              />
+            </section>
+          </section>
+        </div>
+        {workspace === "admin" && (
+          <section aria-label={t("Class and Shifts List")}>
+            <ClassList
+              management
+              classes={classes}
+              loading={loadingClasses}
+              connected={!connectionError}
+              onStartEnrollment={startEnrollment}
             />
           </section>
         )}
       </main>
-
-      {/* Footer */}
       <footer className="admission-footer">
         <p>
-          School Admission System{" "}
-          <span>First-come, first-served · No account required</span>
+          {t("School Admission System")}{" "}
+          <span>{t("First-come, first-served · No account required")}</span>
         </p>
       </footer>
-
-      {/* Create Class Admin Modal */}
+      {admissionDetails &&
+        admissionDetails.studentId === studentId &&
+        workspace === "student" && (
+          <AdmissionDetailsModal
+            admission={admissionDetails.hold}
+            studentId={studentId}
+            className={
+              admissionDetails.hold.className ??
+              classes.find((item) => item.id === admissionDetails.hold.classId)
+                ?.name ??
+              admissionDetails.hold.classId
+            }
+            onClose={() => setAdmissionDetails(null)}
+          />
+        )}
       {isCreateModalOpen && (
         <CreateClassModal
-          isOpen={isCreateModalOpen}
+          isOpen
           onClose={() => setIsCreateModalOpen(false)}
           onClassCreated={() => {
-            fetchClasses(false);
-            setRefreshApplicationsTrigger((prev) => prev + 1);
+            void fetchClasses();
+            setRefreshApplicationsTrigger((value) => value + 1);
           }}
         />
       )}
     </div>
   );
-};
+}
 
 export default function App() {
   return (
-    <StudentProvider>
-      <MainDashboard />
-    </StudentProvider>
+    <LanguageProvider>
+      <StudentProvider>
+        <MainDashboard />
+      </StudentProvider>
+    </LanguageProvider>
   );
 }

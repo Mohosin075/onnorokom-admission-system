@@ -1,3 +1,4 @@
+import { useLanguage } from "../context/language-store";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { HoldItem } from "../types";
 import { useStudent } from "../context/student-store";
@@ -15,16 +16,20 @@ interface MyApplicationsProps {
   onSelectHold: (holdId: string) => void;
   onApplicationsLoaded?: (studentId: string, holds: HoldItem[]) => void;
   refreshTrigger: number;
+  onBrowseClasses?: () => void;
 }
 
 export const MyApplications: React.FC<MyApplicationsProps> = ({
   onSelectHold,
   onApplicationsLoaded,
   refreshTrigger,
+  onBrowseClasses,
 }) => {
+  const { t, language } = useLanguage();
   const { studentId, isValidStudentId } = useStudent();
   const [holds, setHolds] = useState<HoldItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -42,11 +47,12 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
     fetching.current = true;
 
     setLoading(true);
-    setError(null);
     try {
       const data = await api.getMyHolds(studentId);
       if (mounted.current && request === version.current) {
         setHolds(data);
+        setHasLoaded(true);
+        setError(null);
         onApplicationsLoaded?.(studentId, data);
       }
     } catch (err) {
@@ -84,7 +90,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
           <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-          Admitted
+          {t("Admitted")}
         </span>
       );
     }
@@ -93,7 +99,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
           <AlertTriangle className="w-3.5 h-3.5 mr-1 text-rose-600" />
-          Payment deadline passed
+          {t("Payment deadline passed")}
         </span>
       );
     }
@@ -102,7 +108,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-slate-200 text-slate-700">
           <XCircle className="w-3.5 h-3.5 mr-1 text-slate-500" />
-          Cancelled
+          {t("Cancelled")}
         </span>
       );
     }
@@ -110,7 +116,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
     return (
       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
         <Clock className="w-3.5 h-3.5 mr-1 text-amber-600" />
-        Waiting for payment
+        {t("Waiting for payment")}
       </span>
     );
   };
@@ -131,12 +137,12 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900">
-              My applications
+              {t("My applications")}
             </h2>
             <p className="text-xs text-slate-500">
-              Birth registration number:{" "}
+              {t("Birth registration number:")}{" "}
               <span className="font-mono font-medium text-slate-800">
-                {studentId || "None"}
+                {studentId || t("None")}
               </span>
             </p>
           </div>
@@ -146,7 +152,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
           onClick={fetchMyHolds}
           disabled={loading || !isValidStudentId}
           className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-40"
-          title="Refresh Applications"
+          title={t("Refresh Applications")}
         >
           <RefreshCw
             className={`w-4 h-4 ${loading ? "animate-spin text-indigo-600" : ""}`}
@@ -156,66 +162,102 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
 
       {isValidStudentId && holds.length > 0 && (
         <div className="admission-history-filter">
-          <label htmlFor="application-status">Show applications</label>
+          <label htmlFor="application-status">{t("Show applications")}</label>
           <select
             id="application-status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="all">All applications</option>
-            <option value="HELD">Waiting for payment</option>
-            <option value="CONFIRMED">Admitted</option>
-            <option value="EXPIRED">Payment deadline passed</option>
-            <option value="CANCELLED">Cancelled</option>
+            <option value="all">{t("All applications")}</option>
+            <option value="HELD">{t("Waiting for payment")}</option>
+            <option value="CONFIRMED">{t("Admitted")}</option>
+            <option value="EXPIRED">{t("Payment deadline passed")}</option>
+            <option value="CANCELLED">{t("Cancelled")}</option>
           </select>
           <span>
-            {visibleHolds.length} of {holds.length} applications
+            {t("{visible} of {total} applications", {
+              visible: visibleHolds.length,
+              total: holds.length,
+            })}
           </span>
         </div>
       )}
-      {error && (
-        <div className="p-4 bg-red-50 text-xs text-red-700 border-b border-red-100">
-          {error}
+      {error && holds.length > 0 && (
+        <div role="alert" className="admission-history-error">
+          <p>
+            {t(error)} {t("Your saved list may be out of date.")}
+          </p>
+          <button onClick={() => void fetchMyHolds()} disabled={loading}>
+            {loading ? t("Retrying...") : t("Try again")}
+          </button>
         </div>
       )}
 
       {!isValidStudentId ? (
         <div className="p-8 text-center text-slate-400">
           <p className="text-sm">
-            Enter your birth registration number above to see your applications.
+            {t(
+              "Enter your birth registration number above to see your applications.",
+            )}
           </p>
         </div>
-      ) : loading && holds.length === 0 ? (
+      ) : error && holds.length === 0 ? (
+        <div role="alert" className="admission-history-error">
+          <h3>{t("Applications could not be loaded")}</h3>
+          <p>{t(error)}</p>
+          <p>
+            {t(
+              "We cannot check your applications right now. Retry before applying again.",
+            )}
+          </p>
+          <button onClick={() => void fetchMyHolds()} disabled={loading}>
+            {loading ? t("Retrying...") : t("Try again")}
+          </button>
+        </div>
+      ) : !hasLoaded ? (
         <div className="p-8 text-center text-slate-400">
           <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-xs">Fetching applications...</p>
+          <p className="text-xs">{t("Fetching applications...")}</p>
         </div>
       ) : holds.length === 0 ? (
         <div className="p-8 text-center text-slate-400">
-          <p className="text-sm font-medium mb-1">You have not applied yet.</p>
-          <p className="text-xs">
-            Choose a class above and click "Apply Now" to reserve a seat.
+          <p className="text-sm font-medium mb-1">
+            {t("You have not applied yet.")}
           </p>
+          <p className="text-xs">
+            {t(
+              "Open Browse classes to choose a class and start your application.",
+            )}
+          </p>
+          <button className="admission-secondary" onClick={onBrowseClasses}>
+            {t("Browse classes")}
+          </button>
         </div>
       ) : visibleHolds.length === 0 ? (
         <div className="admission-empty">
-          <h3>No applications with this status</h3>
+          <h3>{t("No applications with this status")}</h3>
           <button
             className="admission-secondary"
             onClick={() => setStatusFilter("all")}
           >
-            Show all applications
+            {t("Show all applications")}
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <div className="admission-history-results">
+          <table className="admission-history-table w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-3 font-semibold">Class / Shift</th>
-                <th className="px-6 py-3 font-semibold">Status</th>
-                <th className="px-6 py-3 font-semibold">Payment deadline</th>
-                <th className="px-6 py-3 font-semibold text-right">Action</th>
+                <th className="px-6 py-3 font-semibold">
+                  {t("Class / Shift")}
+                </th>
+                <th className="px-6 py-3 font-semibold">{t("Status")}</th>
+                <th className="px-6 py-3 font-semibold">
+                  {t("Payment deadline")}
+                </th>
+                <th className="px-6 py-3 font-semibold text-right">
+                  {t("Action")}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -227,50 +269,62 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
                     key={h.holdId}
                     className="hover:bg-slate-50/70 transition-colors"
                   >
-                    <td className="px-6 py-3.5 font-semibold text-slate-800">
+                    <td
+                      data-label={t("Class / Shift")}
+                      className="px-6 py-3.5 font-semibold text-slate-800"
+                    >
                       {h.className || h.classId}
                       <details className="admission-reference">
-                        <summary>Application reference</summary>
+                        <summary>{t("Application reference")}</summary>
                         <span>{h.holdId}</span>
                       </details>
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td data-label={t("Status")} className="px-6 py-3.5">
                       {getStatusBadge(h.status, h.expiresAt)}
                     </td>
-                    <td className="px-6 py-3.5 text-xs text-slate-500">
+                    <td
+                      data-label={t("Payment deadline")}
+                      className="px-6 py-3.5 text-xs text-slate-500"
+                    >
                       {h.status === "CONFIRMED"
-                        ? "Payment completed"
+                        ? t("Payment completed")
                         : h.status === "CANCELLED"
-                          ? "Seat released"
-                          : new Date(h.expiresAt).toLocaleString([], {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                          ? t("Seat released")
+                          : new Date(h.expiresAt).toLocaleString(
+                              language === "bn" ? "bn-BD" : "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
                     </td>
-                    <td className="px-6 py-3.5 text-right">
+                    <td
+                      data-label={t("Action")}
+                      className="px-6 py-3.5 text-right"
+                    >
                       {isHeld ? (
                         <button
                           onClick={() => onSelectHold(h.holdId)}
                           className="px-3 py-1 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200"
                         >
-                          Continue payment
+                          {t("Continue payment")}
                         </button>
                       ) : h.status === "CONFIRMED" ? (
                         <button
                           onClick={() => onSelectHold(h.holdId)}
                           className="px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-lg"
                         >
-                          View admission
+                          {t("View admission")}
                         </button>
                       ) : (
-                        <a
+                        <button
                           className="text-xs font-semibold text-emerald-700 underline"
-                          href="#class-directory"
+                          onClick={onBrowseClasses}
                         >
-                          Choose a class again
-                        </a>
+                          {t("Choose a class again")}
+                        </button>
                       )}
                     </td>
                   </tr>

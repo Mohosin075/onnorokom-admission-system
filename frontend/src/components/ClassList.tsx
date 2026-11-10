@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "../context/language-store";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -7,8 +8,6 @@ import {
   X,
 } from "lucide-react";
 import type { ClassItem, HoldItem } from "../types";
-import { useStudent } from "../context/student-store";
-import { api, getErrorMessage } from "../services/api";
 interface ClassListProps {
   management?: boolean;
   applications?: HoldItem[];
@@ -16,8 +15,7 @@ interface ClassListProps {
   connected?: boolean;
   classes: ClassItem[];
   loading: boolean;
-  onHoldCreated: (holdId: string) => void;
-  onError: (msg: string) => void;
+  onStartEnrollment: (item: ClassItem) => void;
 }
 export function ClassList({
   management = false,
@@ -26,40 +24,19 @@ export function ClassList({
   connected = true,
   classes,
   loading,
-  onHoldCreated,
-  onError,
+  onStartEnrollment,
 }: ClassListProps) {
-  const { studentId, isValidStudentId } = useStudent();
-  const [holdingId, setHoldingId] = useState<string | null>(null);
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [availability, setAvailability] = useState("all");
   const [sort, setSort] = useState("name");
   const [now, setNow] = useState(Date.now);
-  const mounted = useRef(false);
-  const submitting = useRef(false);
   useEffect(() => {
-    mounted.current = true;
     const clock = setInterval(() => setNow(Date.now()), 1000);
     return () => {
-      mounted.current = false;
       clearInterval(clock);
     };
   }, []);
-  const handleApply = async (item: ClassItem) => {
-    if (submitting.current || !isValidStudentId || item.availableSeats <= 0)
-      return;
-    submitting.current = true;
-    setHoldingId(item.id);
-    try {
-      const response = await api.createHold(item.id, studentId);
-      if (mounted.current) onHoldCreated(response.holdId);
-    } catch (error) {
-      if (mounted.current) onError(getErrorMessage(error));
-    } finally {
-      submitting.current = false;
-      if (mounted.current) setHoldingId(null);
-    }
-  };
   const visible = classes
     .filter(
       (item) =>
@@ -84,13 +61,17 @@ export function ClassList({
       <div className="admission-section-heading">
         <div>
           <span className="admission-eyebrow">
-            {management ? "CLASS LIST" : "ADMISSION"}
+            {management ? t("CLASS LIST") : t("ADMISSION")}
           </span>
-          <h2>{management ? "Classes and seats" : "Choose a class"}</h2>
+          <h2>{management ? t("Classes and seats") : t("Choose a class")}</h2>
           <p>
             {management
-              ? "See seats left, students waiting for payment and completed admissions."
-              : "Select Apply Now to keep a seat while you complete payment."}
+              ? t(
+                  "See seats left, students waiting for payment and completed admissions.",
+                )
+              : t(
+                  "Choose a class to start. You will review your details before reserving a seat.",
+                )}
           </p>
         </div>
         <span className="admission-live">
@@ -99,47 +80,47 @@ export function ClassList({
               connected ? "admission-live-dot" : "admission-offline-dot"
             }
           />{" "}
-          {connected ? "Live updates" : "Reconnecting"}
+          {connected ? t("Live updates") : t("Reconnecting")}
         </span>
       </div>
       <div className="admission-filters">
         <div className="admission-search">
           <Search size={18} />
           <input
-            aria-label="Search classes"
-            placeholder="Search by class or shift…"
+            aria-label={t("Search classes")}
+            placeholder={t("Search by class or shift…")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
-            <button aria-label="Clear search" onClick={() => setQuery("")}>
+            <button aria-label={t("Clear search")} onClick={() => setQuery("")}>
               <X size={16} />
             </button>
           )}
         </div>
         <details className="admission-extra-filters" open={management}>
-          <summary>Filter and sort</summary>
+          <summary>{t("Filter and sort")}</summary>
           <div className="admission-filter-options">
             <label>
               <SlidersHorizontal size={16} />
               <select
-                aria-label="Seat availability"
+                aria-label={t("Seat availability")}
                 value={availability}
                 onChange={(e) => setAvailability(e.target.value)}
               >
-                <option value="all">All classes</option>
-                <option value="available">Seats available</option>
-                <option value="full">Full classes</option>
+                <option value="all">{t("All classes")}</option>
+                <option value="available">{t("Seats available")}</option>
+                <option value="full">{t("Full classes")}</option>
               </select>
             </label>
             <label>
               <select
-                aria-label="Sort classes"
+                aria-label={t("Sort classes")}
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
               >
-                <option value="name">Name: A–Z</option>
-                <option value="seats">Most seats available</option>
+                <option value="name">{t("Name: A–Z")}</option>
+                <option value="seats">{t("Most seats available")}</option>
               </select>
             </label>
           </div>
@@ -147,45 +128,57 @@ export function ClassList({
       </div>
       <div className="admission-result-count">
         {loading && classes.length === 0
-          ? "Loading classes..."
-          : visible.length +
-            " of " +
-            classes.length +
-            (classes.length === 1 ? " class" : " classes")}
-        {!management && !isValidStudentId && (
+          ? t("Loading classes...")
+          : t("{visible} of {total} classes", {
+              visible: visible.length,
+              total: classes.length,
+            })}
+        {!management && !onSelectHold && (
           <span>
-            You can browse classes now. Enter your birth registration number to
-            apply.
+            {t("Choose a class. Enter the student's number in the next step.")}
           </span>
         )}
       </div>
       {loading && !classes.length ? (
         <div
           className="admission-class-grid"
-          aria-label="Loading classes"
+          aria-label={t("Loading classes")}
           aria-busy="true"
         >
           {[0, 1, 2].map((i) => (
             <div key={i} className="admission-skeleton" />
           ))}
         </div>
+      ) : !connected && classes.length === 0 ? (
+        <div className="admission-empty">
+          <h3>{t("Classes could not be loaded")}</h3>
+          <p>
+            {t(
+              "We cannot check available classes right now. Use Try again above to reconnect.",
+            )}
+          </p>
+        </div>
       ) : classes.length === 0 ? (
         <div className="admission-empty">
           <BookOpen size={32} />
-          <h3>No classes found</h3>
+          <h3>{t("No classes found")}</h3>
           <p>
             {management
-              ? "Create your first class to open admissions. Set the class name, shift and total seats."
-              : "Admissions have not opened yet. Published classes will appear here."}
+              ? t(
+                  "Create your first class to open admissions. Set the class name, shift and total seats.",
+                )
+              : t(
+                  "Admissions have not opened yet. Published classes will appear here.",
+                )}
           </p>
         </div>
       ) : visible.length === 0 ? (
         <div className="admission-empty">
           <Search size={30} />
-          <h3>No matching classes</h3>
-          <p>Try a different class name or reset your filters.</p>
+          <h3>{t("No matching classes")}</h3>
+          <p>{t("Try a different class name or reset your filters.")}</p>
           <button className="admission-secondary" onClick={clearFilters}>
-            Reset filters
+            {t("Reset filters")}
           </button>
         </div>
       ) : management ? (
@@ -193,12 +186,12 @@ export function ClassList({
           <table className="admission-table">
             <thead>
               <tr>
-                <th>Class / shift</th>
-                <th>Total</th>
-                <th>Waiting for payment</th>
-                <th>Admitted</th>
-                <th>Available</th>
-                <th>Seats taken</th>
+                <th>{t("Class / shift")}</th>
+                <th>{t("Total")}</th>
+                <th>{t("Waiting for payment")}</th>
+                <th>{t("Admitted")}</th>
+                <th>{t("Available")}</th>
+                <th>{t("Seats taken")}</th>
               </tr>
             </thead>
             <tbody>
@@ -208,8 +201,8 @@ export function ClassList({
                     {item.name}
                     <small>
                       {item.availableSeats > 0
-                        ? "Accepting applications"
-                        : "Currently full"}
+                        ? t("Accepting applications")
+                        : t("Currently full")}
                     </small>
                   </th>
                   <td>{item.totalSeats}</td>
@@ -241,12 +234,13 @@ export function ClassList({
                       />
                     </div>
                     <small>
-                      {Math.round(
-                        ((item.heldSeats + item.confirmedSeats) /
-                          item.totalSeats) *
-                          100,
-                      )}
-                      % of seats taken
+                      {t("{count}% of seats taken", {
+                        count: Math.round(
+                          ((item.heldSeats + item.confirmedSeats) /
+                            item.totalSeats) *
+                            100,
+                        ),
+                      })}
                     </small>
                   </td>
                 </tr>
@@ -281,22 +275,22 @@ export function ClassList({
                     }
                   >
                     {full
-                      ? "Class full"
-                      : item.availableSeats + " seats available"}
+                      ? t("Class full")
+                      : t("{count} seats available", {
+                          count: item.availableSeats,
+                        })}
                   </span>
                 </div>
                 <span className="admission-class-number">
-                  {full ? "CLASS & SHIFT" : "CLASS & SHIFT"}
+                  {full ? t("CLASS & SHIFT") : t("CLASS & SHIFT")}
                 </span>
                 <h3>{item.name}</h3>
                 <div
                   className="admission-capacity"
-                  aria-label={
-                    item.availableSeats +
-                    " of " +
-                    item.totalSeats +
-                    " seats available"
-                  }
+                  aria-label={t("{available} of {total} seats available", {
+                    available: item.availableSeats,
+                    total: item.totalSeats,
+                  })}
                 >
                   <span
                     style={{
@@ -312,15 +306,15 @@ export function ClassList({
                 </div>
                 <dl className="admission-seat-breakdown">
                   <div>
-                    <dt>Total seats</dt>
+                    <dt>{t("Total seats")}</dt>
                     <dd>{item.totalSeats}</dd>
                   </div>
                   <div>
-                    <dt>Awaiting payment</dt>
+                    <dt>{t("Awaiting payment")}</dt>
                     <dd>{item.heldSeats}</dd>
                   </div>
                   <div>
-                    <dt>Admitted</dt>
+                    <dt>{t("Admitted")}</dt>
                     <dd>{item.confirmedSeats}</dd>
                   </div>
                 </dl>
@@ -329,35 +323,35 @@ export function ClassList({
                   onClick={() =>
                     existing
                       ? onSelectHold?.(existing.holdId)
-                      : void handleApply(item)
+                      : onStartEnrollment(item)
                   }
-                  disabled={
-                    (!existing && full) ||
-                    holdingId !== null ||
-                    !isValidStudentId
-                  }
+                  disabled={!existing && full}
                 >
-                  {holdingId === item.id
-                    ? "Reserving your seat…"
-                    : existing
-                      ? existing.status === "CONFIRMED"
-                        ? "View admission"
-                        : "Continue payment"
-                      : full
-                        ? "Class full"
-                        : "Apply Now"}
+                  {existing
+                    ? existing.status === "CONFIRMED"
+                      ? t("View admission")
+                      : t("Continue payment")
+                    : full
+                      ? t("Class full")
+                      : t("Apply Now")}
                   {(!full || existing) && <ArrowRight size={17} />}
                 </button>
                 <small className="admission-card-note">
                   {existing
                     ? existing.status === "CONFIRMED"
-                      ? "Your admission to this class is confirmed."
-                      : "Your seat is waiting. Pay before the deadline."
+                      ? t("Your admission to this class is confirmed.")
+                      : t("Your seat is waiting. Pay before the deadline.")
                     : full
-                      ? "A seat may become available if another student cancels."
-                      : !isValidStudentId
-                        ? "Enter your birth registration number above to apply."
-                        : "You will see your payment deadline after applying."}
+                      ? t(
+                          "A seat may become available if another student cancels.",
+                        )
+                      : !onSelectHold
+                        ? t(
+                            "Your student details come next. No seat is reserved until you confirm.",
+                          )
+                        : t(
+                            "Review your details first, then reserve a seat and pay.",
+                          )}
                 </small>
               </article>
             );
