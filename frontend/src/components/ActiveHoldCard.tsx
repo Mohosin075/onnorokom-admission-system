@@ -208,23 +208,23 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Your selected application
             </span>
-            <span className="text-xs font-mono bg-white/80 px-2 py-0.5 rounded border border-slate-200 text-slate-600">
-              ID: {hold.holdId}
-            </span>
           </div>
 
           <h3 className="text-xl font-extrabold text-slate-900">{className}</h3>
           <p className="admission-booking-help">
             {isConfirmed
-              ? "You’re all set. Your admission is confirmed and saved in My applications."
+              ? "Your admission is complete. You can find it in My applications whenever you return."
               : isExpired
-                ? "This reservation has expired and the seat has been released. Choose an available class to apply again."
+                ? "The payment deadline has passed. This seat is no longer reserved for you. Choose a class below to try again."
                 : isCancelled
-                  ? "This reservation was cancelled. You can choose an available class to start again."
-                  : "Your seat is reserved temporarily. Complete the simulated payment below to confirm admission. No money is charged."}
+                  ? "You cancelled this application. You can choose another class below."
+                  : "We are keeping this seat for you until the timer ends. Pay the admission fee to finish. This is a practice payment; no real money is charged."}
           </p>
 
-          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-2 pt-1 text-xs"
+          >
             {isConfirmed && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
@@ -234,15 +234,15 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
 
             {isHeld && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-bold text-xs border border-indigo-200">
-                <Clock className="w-3.5 h-3.5 mr-1 text-indigo-600 animate-spin" />
-                Seat Reserved (Held)
+                <Clock className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+                Waiting for your payment
               </span>
             )}
 
             {isExpired && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-xs border border-rose-200">
                 <AlertTriangle className="w-3.5 h-3.5 mr-1 text-rose-600" />
-                Hold Expired
+                Payment deadline passed
               </span>
             )}
 
@@ -252,6 +252,10 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
               </span>
             )}
           </div>
+          <details className="admission-reference">
+            <summary>Application reference</summary>
+            <span>ID: {hold.holdId}</span>
+          </details>
         </div>
 
         {/* Real-time Countdown Timer Display */}
@@ -259,7 +263,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
           <div className="bg-white/90 backdrop-blur-sm border border-indigo-200 rounded-2xl p-4 text-center min-w-[180px] shadow-sm">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5 flex items-center justify-center space-x-1">
               <Clock className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Time Left to Pay</span>
+              <span>Pay within</span>
             </div>
             <div
               className={`text-3xl font-mono font-black ${remainingSeconds < 60 ? "text-rose-600 animate-pulse" : "text-indigo-600"}`}
@@ -267,7 +271,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
               {timeFormatted}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Seat auto-releases when timer hits 00:00
+              Your seat is kept until this timer ends.
             </p>
           </div>
         )}
@@ -276,11 +280,9 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
           <div className="bg-white/90 border border-emerald-200 rounded-2xl p-4 text-center min-w-[180px] shadow-sm">
             <ShieldCheck className="w-8 h-8 text-emerald-600 mx-auto mb-1" />
             <div className="text-xs font-bold text-emerald-900">
-              Seat Guaranteed
+              Your seat is confirmed
             </div>
-            <div className="text-[11px] text-slate-500">
-              Fee Payment Completed
-            </div>
+            <div className="text-[11px] text-slate-500">Payment completed</div>
           </div>
         )}
 
@@ -299,10 +301,10 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
             >
               <CreditCard className="w-4 h-4 mr-2" />
               {actionLoading
-                ? "Processing Payment..."
+                ? "Please wait..."
                 : isExpired
                   ? "Reservation expired"
-                  : "Pay Admission Fee · Simulated"}
+                  : "Pay Admission Fee"}
             </button>
           )}
 
@@ -314,17 +316,18 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
               className="inline-flex items-center justify-center px-4 py-2.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 text-sm font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-40"
             >
               <XCircle className="w-4 h-4 mr-1.5" />
-              বাতিল (Cancel)
+              Cancel application
             </button>
           )}
 
           {(isExpired || isCancelled || isConfirmed) && (
-            <button
+            <a
+              href={isConfirmed ? "#my-applications" : "#class-directory"}
               onClick={onHoldDismissed}
               className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
             >
-              Dismiss
-            </button>
+              {isConfirmed ? "See my applications" : "Choose a class again"}
+            </a>
           )}
         </div>
       </div>
@@ -335,10 +338,10 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
           aria-label="Cancel reservation confirmation"
         >
           <div>
-            <strong>Release this seat?</strong>
+            <strong>Cancel this application?</strong>
             <p>
-              Your reservation will be cancelled. Availability may change before
-              you apply again.
+              We will stop keeping this seat for you. You can apply again if a
+              seat is available.
             </p>
           </div>
           <div>
@@ -347,14 +350,14 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
               onClick={() => setCancelPrompt(false)}
               className="admission-secondary"
             >
-              Keep reservation
+              Keep my seat
             </button>
             <button
               disabled={actionLoading}
               onClick={() => void handleCancelHold()}
               className="admission-danger"
             >
-              {actionLoading ? "Releasing…" : "Release seat"}
+              {actionLoading ? "Cancelling..." : "Yes, cancel application"}
             </button>
           </div>
         </div>

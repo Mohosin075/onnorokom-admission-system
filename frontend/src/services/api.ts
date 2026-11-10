@@ -108,20 +108,20 @@ export function getErrorMessage(error: unknown): string {
       return axiosError.response.data.title;
     }
     if (axiosError.response?.status === 409) {
-      return "No available seats remaining or application limit reached.";
+      return "This class may be full, or you may have already applied. Check My applications before trying again.";
     }
     if (axiosError.response?.status === 404) {
-      return "Requested resource not found.";
+      return "We could not find this class or application. Refresh the page and try again.";
     }
     if (axiosError.code === "ERR_NETWORK") {
-      return "Cannot connect to the admission server. Please try again shortly.";
+      return "We could not connect. Check your internet connection and try again.";
     }
     if (axiosError.code === "ECONNABORTED") {
-      return "The admission server took too long to respond. Please try again.";
+      return "This is taking longer than usual. Please try again.";
     }
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return "An unexpected error occurred.";
+  return "We could not finish that. Please try again.";
 }

@@ -11,7 +11,6 @@ import type { ClassItem, HoldItem } from "./types";
 import "./assessment.css";
 import {
   AlertCircle,
-  ArrowDown,
   ArrowUpRight,
   Check,
   Clock3,
@@ -187,106 +186,77 @@ const MainDashboard: React.FC = () => {
       <main id="main-content" className="admission-main">
         <section
           aria-label="Workspace introduction"
-          className="admission-welcome"
+          className="admission-simple-intro"
         >
-          <div className="admission-welcome-copy">
-            <span className="admission-eyebrow">
-              {workspace === "student"
-                ? "YOUR NEXT CHAPTER"
-                : "ADMISSIONS OVERVIEW"}
-            </span>
+          <div>
             <h1>
-              {workspace === "student" ? (
-                <>
-                  A small step.
-                  <br />
-                  <em>A bright beginning.</em>
-                </>
-              ) : (
-                <>
-                  Every class.
-                  <br />
-                  <em>Every seat accounted for.</em>
-                </>
-              )}
+              {workspace === "student"
+                ? "Apply for admission"
+                : "Manage classes and seats"}
             </h1>
             <p>
               {workspace === "student"
-                ? "Find the right class, reserve your place and take the next step. Your admission journey starts here."
-                : "Open admissions, keep an eye on capacity and see how your classes are filling up. All in real time."}
+                ? "Enter your birth registration number, choose a class, then pay the admission fee to confirm your seat."
+                : "Add a class and set its total seats. Seat counts update automatically as students apply."}
             </p>
-            <a href="#class-directory" className="admission-text-link">
-              {workspace === "student"
-                ? "Explore available classes"
-                : "View class directory"}
-              <ArrowDown size={16} />
-            </a>
           </div>
-          {workspace === "student" ? (
-            <div className="admission-journey">
-              <span className="admission-eyebrow">
-                THREE STEPS. ONE NEW BEGINNING.
-              </span>
-              <ol>
-                <li className={isValidStudentId ? "is-complete" : "is-current"}>
-                  <span>{isValidStudentId ? <Check size={16} /> : "01"}</span>
-                  <div>
-                    <strong>Your student identity</strong>
-                    <p>
-                      {isValidStudentId
-                        ? "Your 17-digit ID is ready."
-                        : "Enter your birth registration number above."}
-                    </p>
-                  </div>
-                </li>
-                <li
-                  className={
-                    activeHoldId
-                      ? "is-complete"
-                      : isValidStudentId
-                        ? "is-current"
-                        : ""
+          {workspace === "student" && (
+            <div className="admission-next-action">
+              {!isValidStudentId ? (
+                <button
+                  className="admission-primary"
+                  onClick={() => {
+                    const input = document.getElementById("student-id");
+                    input?.focus({ preventScroll: true });
+                    input?.scrollIntoView?.({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                  }}
+                >
+                  Start with your birth registration number
+                </button>
+              ) : (
+                <a
+                  className="admission-primary"
+                  href={
+                    activeHoldId ? "#active-application" : "#class-directory"
                   }
                 >
-                  <span>{activeHoldId ? <Check size={16} /> : "02"}</span>
-                  <div>
-                    <strong>Find & reserve a seat</strong>
-                    <p>Choose a class and select Apply Now.</p>
-                  </div>
-                </li>
-                <li className={activeHoldId ? "is-current" : ""}>
-                  <span>03</span>
-                  <div>
-                    <strong>Confirm your admission</strong>
-                    <p>Complete simulated payment before time runs out.</p>
-                  </div>
-                </li>
-              </ol>
-              <div className="admission-journey-note">
-                <Clock3 size={15} /> Your exact payment deadline appears after
-                reservation.
-              </div>
+                  {activeHoldId ? "View your application" : "Choose a class"}
+                  <ArrowUpRight size={16} />
+                </a>
+              )}
+              <small>
+                {!isValidStudentId
+                  ? "Use the 17-digit number on your birth certificate. No account needed."
+                  : "Use the same number each time to find your applications."}
+              </small>
             </div>
+          )}
+          {workspace === "student" ? (
+            <ol className="admission-simple-steps" aria-label="How to apply">
+              <li>
+                <span>1</span>Enter your number
+              </li>
+              <li>
+                <span>2</span>Choose a class
+              </li>
+              <li>
+                <span>3</span>Pay to confirm
+              </li>
+            </ol>
           ) : (
-            <div className="admission-admin-note">
-              <Layers size={32} />
-              <h2>Ready for the next intake?</h2>
-              <p>
-                Create a class with its shift and capacity. Students can reserve
-                seats as soon as you publish.
-              </p>
-              <span>
-                This public assessment workspace does not require an admin
-                login.
-              </span>
-            </div>
+            <p className="admission-public-note">
+              This public assessment workspace does not require an admin login.
+            </p>
           )}
         </section>
         {workspace === "admin" && (
           <dl className="admission-metrics">
             {[
               {
-                label: "Published classes",
+                label: "Classes",
                 value: classes.length,
                 icon: Layers,
                 tone: "neutral",
@@ -298,13 +268,13 @@ const MainDashboard: React.FC = () => {
                 tone: "green",
               },
               {
-                label: "Temporary reservations",
+                label: "Waiting for payment",
                 value: classes.reduce((n, c) => n + c.heldSeats, 0),
                 icon: Clock3,
                 tone: "amber",
               },
               {
-                label: "Confirmed admissions",
+                label: "Students admitted",
                 value: classes.reduce((n, c) => n + c.confirmedSeats, 0),
                 icon: Check,
                 tone: "green",
@@ -342,7 +312,8 @@ const MainDashboard: React.FC = () => {
             role="alert"
             className="p-4 rounded-xl bg-amber-50 text-amber-900 border border-amber-200"
           >
-            {connectionError} Seat counts may be out of date.
+            {connectionError} Seat counts may be out of date. Please wait for
+            the connection to return before applying.
             {lastUpdated && <span> Last updated: {lastUpdated}.</span>}
             <button
               className="admission-retry"

@@ -84,7 +84,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
           <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-          CONFIRMED
+          Admitted
         </span>
       );
     }
@@ -93,7 +93,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
           <AlertTriangle className="w-3.5 h-3.5 mr-1 text-rose-600" />
-          EXPIRED
+          Payment deadline passed
         </span>
       );
     }
@@ -102,15 +102,15 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-slate-200 text-slate-700">
           <XCircle className="w-3.5 h-3.5 mr-1 text-slate-500" />
-          CANCELLED
+          Cancelled
         </span>
       );
     }
 
     return (
       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-        <Clock className="w-3.5 h-3.5 mr-1 text-amber-600 animate-spin" />
-        HELD
+        <Clock className="w-3.5 h-3.5 mr-1 text-amber-600" />
+        Waiting for payment
       </span>
     );
   };
@@ -131,10 +131,10 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900">
-              My Applications History
+              My applications
             </h2>
             <p className="text-xs text-slate-500">
-              Applications linked to student ID:{" "}
+              Birth registration number:{" "}
               <span className="font-mono font-medium text-slate-800">
                 {studentId || "None"}
               </span>
@@ -162,10 +162,10 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="all">All statuses</option>
-            <option value="HELD">Awaiting payment</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="EXPIRED">Expired</option>
+            <option value="all">All applications</option>
+            <option value="HELD">Waiting for payment</option>
+            <option value="CONFIRMED">Admitted</option>
+            <option value="EXPIRED">Payment deadline passed</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
           <span>
@@ -182,8 +182,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       {!isValidStudentId ? (
         <div className="p-8 text-center text-slate-400">
           <p className="text-sm">
-            Enter a valid 17-digit Student ID at the top to view your
-            application history.
+            Enter your birth registration number above to see your applications.
           </p>
         </div>
       ) : loading && holds.length === 0 ? (
@@ -193,9 +192,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
         </div>
       ) : holds.length === 0 ? (
         <div className="p-8 text-center text-slate-400">
-          <p className="text-sm font-medium mb-1">
-            No applications found for this student.
-          </p>
+          <p className="text-sm font-medium mb-1">You have not applied yet.</p>
           <p className="text-xs">
             Choose a class above and click "Apply Now" to reserve a seat.
           </p>
@@ -215,7 +212,6 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-3 font-semibold">Hold ID</th>
                 <th className="px-6 py-3 font-semibold">Class / Shift</th>
                 <th className="px-6 py-3 font-semibold">Status</th>
                 <th className="px-6 py-3 font-semibold">Payment deadline</th>
@@ -231,11 +227,12 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
                     key={h.holdId}
                     className="hover:bg-slate-50/70 transition-colors"
                   >
-                    <td className="px-6 py-3.5 font-mono text-xs text-slate-600">
-                      {h.holdId}
-                    </td>
                     <td className="px-6 py-3.5 font-semibold text-slate-800">
                       {h.className || h.classId}
+                      <details className="admission-reference">
+                        <summary>Application reference</summary>
+                        <span>{h.holdId}</span>
+                      </details>
                     </td>
                     <td className="px-6 py-3.5">
                       {getStatusBadge(h.status, h.expiresAt)}
@@ -258,7 +255,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
                           onClick={() => onSelectHold(h.holdId)}
                           className="px-3 py-1 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200"
                         >
-                          View & Pay
+                          Continue payment
                         </button>
                       ) : h.status === "CONFIRMED" ? (
                         <button
@@ -268,7 +265,12 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
                           View admission
                         </button>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <a
+                          className="text-xs font-semibold text-emerald-700 underline"
+                          href="#class-directory"
+                        >
+                          Choose a class again
+                        </a>
                       )}
                     </td>
                   </tr>

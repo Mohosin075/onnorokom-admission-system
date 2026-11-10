@@ -84,15 +84,13 @@ export function ClassList({
       <div className="admission-section-heading">
         <div>
           <span className="admission-eyebrow">
-            {management ? "CLASS DIRECTORY" : "FIND YOUR FIT"}
+            {management ? "CLASS LIST" : "ADMISSION"}
           </span>
-          <h2>
-            {management ? "Classes & capacity" : "Available Classes & Shifts"}
-          </h2>
+          <h2>{management ? "Classes and seats" : "Choose a class"}</h2>
           <p>
             {management
-              ? "A live view of every seat, from reservation to confirmation."
-              : "Choose a class to reserve your seat. Availability updates automatically."}
+              ? "See seats left, students waiting for payment and completed admissions."
+              : "Select Apply Now to keep a seat while you complete payment."}
           </p>
         </div>
         <span className="admission-live">
@@ -119,39 +117,44 @@ export function ClassList({
             </button>
           )}
         </div>
-        <label>
-          <SlidersHorizontal size={16} />
-          <select
-            aria-label="Seat availability"
-            value={availability}
-            onChange={(e) => setAvailability(e.target.value)}
-          >
-            <option value="all">All classes</option>
-            <option value="available">Seats available</option>
-            <option value="full">Full classes</option>
-          </select>
-        </label>
-        <label>
-          <select
-            aria-label="Sort classes"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-          >
-            <option value="name">Name: A–Z</option>
-            <option value="seats">Most seats available</option>
-          </select>
-        </label>
+        <details className="admission-extra-filters" open={management}>
+          <summary>Filter and sort</summary>
+          <div className="admission-filter-options">
+            <label>
+              <SlidersHorizontal size={16} />
+              <select
+                aria-label="Seat availability"
+                value={availability}
+                onChange={(e) => setAvailability(e.target.value)}
+              >
+                <option value="all">All classes</option>
+                <option value="available">Seats available</option>
+                <option value="full">Full classes</option>
+              </select>
+            </label>
+            <label>
+              <select
+                aria-label="Sort classes"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+              >
+                <option value="name">Name: A–Z</option>
+                <option value="seats">Most seats available</option>
+              </select>
+            </label>
+          </div>
+        </details>
       </div>
       <div className="admission-result-count">
         {loading && classes.length === 0
-          ? "Fetching live availability…"
+          ? "Loading classes..."
           : visible.length +
             " of " +
             classes.length +
             (classes.length === 1 ? " class" : " classes")}
         {!management && !isValidStudentId && (
           <span>
-            Browse freely. Enter your student ID above when you’re ready to
+            You can browse classes now. Enter your birth registration number to
             apply.
           </span>
         )}
@@ -192,10 +195,10 @@ export function ClassList({
               <tr>
                 <th>Class / shift</th>
                 <th>Total</th>
-                <th>Held</th>
-                <th>Confirmed</th>
+                <th>Waiting for payment</th>
+                <th>Admitted</th>
                 <th>Available</th>
-                <th>Occupancy</th>
+                <th>Seats taken</th>
               </tr>
             </thead>
             <tbody>
@@ -243,7 +246,7 @@ export function ClassList({
                           item.totalSeats) *
                           100,
                       )}
-                      % reserved
+                      % of seats taken
                     </small>
                   </td>
                 </tr>
@@ -283,7 +286,7 @@ export function ClassList({
                   </span>
                 </div>
                 <span className="admission-class-number">
-                  {full ? "CLASS & SHIFT" : "ADMISSION OPEN / CLASS & SHIFT"}
+                  {full ? "CLASS & SHIFT" : "CLASS & SHIFT"}
                 </span>
                 <h3>{item.name}</h3>
                 <div
@@ -313,11 +316,11 @@ export function ClassList({
                     <dd>{item.totalSeats}</dd>
                   </div>
                   <div>
-                    <dt>Held</dt>
+                    <dt>Awaiting payment</dt>
                     <dd>{item.heldSeats}</dd>
                   </div>
                   <div>
-                    <dt>Confirmed</dt>
+                    <dt>Admitted</dt>
                     <dd>{item.confirmedSeats}</dd>
                   </div>
                 </dl>
@@ -349,12 +352,12 @@ export function ClassList({
                   {existing
                     ? existing.status === "CONFIRMED"
                       ? "Your admission to this class is confirmed."
-                      : "You have a reservation. Complete payment before it expires."
+                      : "Your seat is waiting. Pay before the deadline."
                     : full
-                      ? "Check back as unpaid reservations expire."
+                      ? "A seat may become available if another student cancels."
                       : !isValidStudentId
-                        ? "Enter your student ID to reserve a seat."
-                        : "Reserve first. Confirm before your timer expires."}
+                        ? "Enter your birth registration number above to apply."
+                        : "You will see your payment deadline after applying."}
                 </small>
               </article>
             );

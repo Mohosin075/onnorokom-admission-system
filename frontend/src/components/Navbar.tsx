@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   BookOpen,
   Check,
   GraduationCap,
@@ -30,10 +29,10 @@ export function Navbar({
             <GraduationCap size={25} />
           </span>
           <span>
-            School admissions<small>A place to begin.</small>
+            School admissions<small>Apply and track your admission</small>
           </span>
         </a>
-        <p className="admission-nav-label">YOUR WORKSPACE</p>
+        <p className="admission-nav-label">MENU</p>
         <nav aria-label="Workspace" className="admission-workspaces">
           <button
             aria-label="Student admissions"
@@ -42,7 +41,7 @@ export function Navbar({
           >
             <BookOpen size={19} />
             <span>
-              Student admissions<small>Find your class & apply</small>
+              Student admissions<small>Apply or check your application</small>
             </span>
             {workspace === "student" && <span className="admission-nav-dot" />}
           </button>
@@ -53,23 +52,18 @@ export function Navbar({
           >
             <LayoutDashboard size={19} />
             <span>
-              Admin workspace<small>Classes & seat capacity</small>
+              Admin workspace<small>Add classes and check seats</small>
             </span>
             {workspace === "admin" && <span className="admission-nav-dot" />}
           </button>
         </nav>
         <div className="admission-sidebar-note">
-          <span className="admission-eyebrow">HOW SEATS WORK</span>
-          <p>
-            First come.
-            <br />
-            First reserved.
-          </p>
+          <span className="admission-eyebrow">NEED TO COME BACK LATER?</span>
+          <p>Your number is all you need.</p>
           <small>
-            A reservation holds your seat temporarily. Confirm it before the
-            countdown ends.
+            Enter the same birth registration number to see your applications.
+            An unpaid seat is only kept until its payment deadline.
           </small>
-          <ArrowUpRight size={22} />
         </div>
         <div className="admission-sidebar-footer">
           <span className="admission-live-dot" /> Live seat availability
@@ -83,13 +77,13 @@ export function Navbar({
           </span>
           <p>
             {workspace === "student"
-              ? "Make room for your next chapter."
-              : "Your admissions, in one place."}
+              ? "Choose a class or check an existing application."
+              : "Add classes and see how many seats are left."}
           </p>
         </div>
         {workspace === "student" ? (
           <div className="admission-identity">
-            <label htmlFor="student-id">Student ID:</label>
+            <label htmlFor="student-id">Birth registration number</label>
             <div
               className={
                 isValidStudentId
@@ -104,7 +98,13 @@ export function Navbar({
                 maxLength={17}
                 value={studentId}
                 onChange={(e) =>
-                  setStudentId(e.target.value.replace(/\D/g, ""))
+                  setStudentId(
+                    e.target.value
+                      .replace(/[\u09e6-\u09ef]/g, (digit) =>
+                        String(digit.charCodeAt(0) - 0x09e6),
+                      )
+                      .replace(/\D/g, ""),
+                  )
                 }
                 placeholder="17-digit birth registration"
                 aria-describedby="student-id-help"
@@ -115,13 +115,13 @@ export function Navbar({
             </div>
             <small id="student-id-help">
               {isValidStudentId
-                ? "ID ready · your applications are linked below"
-                : studentId.length + "/17 digits · enter your ID to apply"}
+                ? "Your number is ready. Choose a class below."
+                : studentId.length + " of 17 digits entered"}
             </small>
           </div>
         ) : (
           <button className="admission-primary" onClick={onOpenCreateClass}>
-            <Plus size={17} /> Create Class (Admin)
+            <Plus size={17} /> Add a class
           </button>
         )}
       </header>

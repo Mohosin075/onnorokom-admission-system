@@ -1204,9 +1204,253 @@
     row-gap: 8px;
   }
 }
-.admission-offline-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#b28c53; margin-right:7px; }
-.admission-identity input { font-size:13px; }.admission-identity label { font-size:11px; }.admission-identity small { font-size:10px; }
-.admission-welcome-copy > p { font-size:13px; }.admission-section-heading p { font-size:12px; }
-.admission-search input { font-size:12px; }.admission-filters select { font-size:11px; }
-.admission-class-number { font-size:9px; }.admission-seat-label { font-size:10px; }.admission-seat-breakdown dt { font-size:11px; }.admission-seat-breakdown dd { font-size:18px; }
-.admission-apply,.admission-primary { font-size:12px; }.admission-card-note { font-size:10px; }.admission-booking-help { font-size:12px; }
+.admission-offline-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b28c53;
+  margin-right: 7px;
+}
+.admission-identity input {
+  font-size: 13px;
+}
+.admission-identity label {
+  font-size: 11px;
+}
+.admission-identity small {
+  font-size: 10px;
+}
+.admission-welcome-copy > p {
+  font-size: 13px;
+}
+.admission-section-heading p {
+  font-size: 12px;
+}
+.admission-search input {
+  font-size: 12px;
+}
+.admission-filters select {
+  font-size: 11px;
+}
+.admission-class-number {
+  font-size: 9px;
+}
+.admission-seat-label {
+  font-size: 10px;
+}
+.admission-seat-breakdown dt {
+  font-size: 11px;
+}
+.admission-seat-breakdown dd {
+  font-size: 18px;
+}
+.admission-apply,
+.admission-primary {
+  font-size: 12px;
+}
+.admission-card-note {
+  font-size: 10px;
+}
+.admission-booking-help {
+  font-size: 12px;
+}
+.admission-simple-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 330px);
+  align-items: center;
+  gap: 24px;
+  background: #edf3e9;
+  border: 1px solid #dbe6d6;
+  border-radius: 14px;
+  padding: 26px 28px 0;
+  margin-bottom: 28px;
+}
+.admission-simple-intro h1 {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.8px;
+  margin: 0 0 10px;
+  line-height: 1.25;
+}
+.admission-simple-intro > div > p {
+  font-size: 13px;
+  color: #5f7466;
+  line-height: 1.8;
+  max-width: 540px;
+}
+.admission-next-action {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+.admission-next-action a {
+  text-decoration: none;
+}
+.admission-next-action small {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #6f8171;
+}
+.admission-simple-steps {
+  grid-column: 1/-1;
+  display: flex;
+  gap: 30px;
+  list-style: none;
+  border-top: 1px solid #dce5d7;
+  padding: 17px 0;
+  font-size: 12px;
+  color: #526d59;
+}
+.admission-simple-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.admission-simple-steps li > span {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #cbdcc8;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+}
+.admission-public-note {
+  grid-column: 1/-1;
+  font-size: 11px;
+  color: var(--muted);
+  padding-bottom: 22px;
+}
+.admission-reference {
+  color: #728475;
+  font-size: 10px;
+  font-weight: 400;
+  margin-top: 9px;
+}
+.admission-reference summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 3px 0;
+}
+.admission-reference > span {
+  display: block;
+  margin-top: 5px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.admission-extra-filters {
+  flex-shrink: 0;
+}
+.admission-extra-filters > summary {
+  padding: 12px 15px;
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 8px;
+  color: #536c5a;
+  cursor: pointer;
+  font-size: 12px;
+  list-style-position: inside;
+}
+.admission-extra-filters[open] > summary {
+  margin-bottom: 8px;
+}
+.admission-filter-options {
+  display: flex;
+  gap: 8px;
+}
+.admission-shell .admission-identity {
+  width: 340px;
+}
+.admission-shell .admission-identity-input {
+  padding: 11px 12px;
+}
+.admission-shell .admission-identity input {
+  font-size: 14px;
+}
+.admission-shell .admission-identity small {
+  font-size: 11px;
+}
+.admission-shell .admission-identity label {
+  font-size: 12px;
+}
+.admission-shell .admission-booking .flex-wrap > button {
+  font-size: 13px;
+}
+.admission-shell #my-applications td:first-child {
+  max-width: 300px;
+}
+.admission-shell .admission-card-note {
+  line-height: 1.8;
+  font-size: 11px;
+}
+.admission-shell .admission-seat-breakdown {
+  grid-template-columns: 1fr 1.3fr 1fr;
+  gap: 7px;
+}
+.admission-shell .admission-seat-breakdown dt {
+  font-size: 10px;
+}
+.admission-shell .admission-class-number {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .admission-simple-intro {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .admission-next-action {
+    align-items: flex-start;
+  }
+  .admission-simple-steps {
+    gap: 20px;
+  }
+  .admission-shell .admission-topbar > div:first-child p {
+    max-width: 240px;
+    line-height: 1.7;
+  }
+}
+@media (max-width: 600px) {
+  .admission-simple-intro {
+    padding: 23px 20px 0;
+  }
+  .admission-simple-intro h1 {
+    font-size: 25px;
+  }
+  .admission-simple-intro > div > p {
+    font-size: 13px;
+  }
+  .admission-next-action {
+    align-items: stretch;
+  }
+  .admission-simple-steps {
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 0;
+  }
+  .admission-shell .admission-identity {
+    width: 100%;
+  }
+  .admission-extra-filters {
+    width: 100%;
+  }
+  .admission-filter-options {
+    flex-wrap: wrap;
+  }
+  .admission-extra-filters > summary {
+    font-size: 12px;
+  }
+  .admission-shell .admission-primary {
+    font-size: 12px;
+    line-height: 1.7;
+    text-align: center;
+  }
+}
+.admission-filters { align-items:flex-start; }
+.admission-search { min-height:42px; }
+.admission-sidebar-note p { font-size:20px; line-height:1.4; }
+.admission-shell [role=dialog] .bg-indigo-600 { background:var(--green); }
+.admission-shell .admission-topbar > div:first-child p { line-height:1.7; }

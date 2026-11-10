@@ -66,24 +66,50 @@ beforeEach(() => {
 });
 
 describe("student identity and restoration", () => {
+  it("guides a new student to the number field and accepts Bangla digits without applying automatically", async () => {
+    render(<App />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Start with your birth registration number",
+      }),
+    );
+    const number = screen.getByLabelText("Birth registration number");
+    expect(number).toHaveFocus();
+    const banglaNumber = [...STUDENT_A]
+      .map((digit) => String.fromCharCode(0x09e6 + Number(digit)))
+      .join("");
+    fireEvent.change(number, { target: { value: banglaNumber } });
+    expect(number).toHaveValue(STUDENT_A);
+    expect(
+      await screen.findByRole("button", { name: "Apply Now" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("link", { name: "Choose a class" }),
+    ).toHaveAttribute("href", "#class-directory");
+    expect(api.createHold).not.toHaveBeenCalled();
+  });
   it("separates admin actions from student admissions and preserves identity when switching", async () => {
     render(<App />);
-    fireEvent.change(screen.getByLabelText("Student ID:"), {
+    fireEvent.change(screen.getByLabelText("Birth registration number"), {
       target: { value: STUDENT_A },
     });
     await screen.findByRole("button", { name: /Apply Now/i });
     expect(
-      screen.queryByRole("button", { name: /Create Class/i }),
+      screen.queryByRole("button", { name: /Add a class/i }),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Admin workspace" }));
-    expect(screen.getByRole("button", { name: /Create Class/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Add a class/i })).toBeVisible();
     expect(
       screen.queryByRole("button", { name: /Apply Now/i }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Student ID:")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Birth registration number"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/public assessment workspace/)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Student admissions" }));
-    expect(screen.getByLabelText("Student ID:")).toHaveValue(STUDENT_A);
+    expect(screen.getByLabelText("Birth registration number")).toHaveValue(
+      STUDENT_A,
+    );
     expect(
       await screen.findByRole("button", { name: /Apply Now/i }),
     ).toBeEnabled();
@@ -91,7 +117,7 @@ describe("student identity and restoration", () => {
   it("opens the no-login assessment UI from the default application entry point", async () => {
     vi.stubEnv("VITE_APP_MODE", "assessment");
     render(<DefaultApp />);
-    expect(screen.getByLabelText("Student ID:")).toBeVisible();
+    expect(screen.getByLabelText("Birth registration number")).toBeVisible();
     expect(
       await screen.findByRole("button", { name: /Apply Now/i }),
     ).toBeDisabled();
@@ -101,7 +127,7 @@ describe("student identity and restoration", () => {
   });
   it("requires an explicit student ID on a fresh browser", async () => {
     render(<App />);
-    expect(screen.getByLabelText("Student ID:")).toHaveValue("");
+    expect(screen.getByLabelText("Birth registration number")).toHaveValue("");
     expect(
       await screen.findByRole("button", { name: /Apply Now/i }),
     ).toBeDisabled();
@@ -156,7 +182,7 @@ describe("student identity and restoration", () => {
     );
     render(<App />);
     await waitFor(() => expect(api.getHoldById).toHaveBeenCalledWith("h_a"));
-    fireEvent.change(screen.getByLabelText("Student ID:"), {
+    fireEvent.change(screen.getByLabelText("Birth registration number"), {
       target: { value: STUDENT_B },
     });
     await screen.findByText("ID: h_b");
@@ -189,12 +215,14 @@ describe("application status and errors", () => {
       },
     ]);
     render(<App />);
-    const resume = await screen.findByRole("button", {
+    const resume = await within(
+      screen.getByRole("region", { name: "Class and Shifts List" }),
+    ).findByRole("button", {
       name: "Continue payment",
     });
     expect(resume).toBeEnabled();
     fireEvent.click(resume);
-    expect(await screen.findByText("ID: h_existing")).toBeVisible();
+    expect(await screen.findByText("ID: h_existing")).toBeInTheDocument();
     expect(api.createHold).not.toHaveBeenCalled();
   });
 
@@ -213,6 +241,7 @@ describe("application status and errors", () => {
     ]);
     render(<App />);
     await screen.findByText("Alpha Morning");
+    fireEvent.click(screen.getByText("Filter and sort"));
     fireEvent.change(screen.getByLabelText("Sort classes"), {
       target: { value: "seats" },
     });
@@ -256,12 +285,18 @@ describe("application status and errors", () => {
     localStorage.setItem("school_admission_active_hold_id", "h_cancel");
     vi.mocked(api.cancelHold).mockResolvedValue(undefined);
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: /Cancel/i }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Cancel application$/i }),
+    );
     expect(api.cancelHold).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Keep reservation" }));
-    expect(screen.queryByText("Release this seat?")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep my seat" }));
+    expect(
+      screen.queryByText("Cancel this application?"),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Release seat" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Yes, cancel application" }),
+    );
     await waitFor(() =>
       expect(api.cancelHold).toHaveBeenCalledWith("h_cancel", STUDENT_A),
     );
@@ -357,16 +392,19 @@ describe("application status and errors", () => {
     );
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Admin workspace" }));
-    fireEvent.click(screen.getByRole("button", { name: /Create Class/i }));
-    fireEvent.change(screen.getByLabelText("Class & Shift Name"), {
+    fireEvent.click(screen.getByRole("button", { name: /Add a class/i }));
+    fireEvent.change(screen.getByLabelText("Class name and shift"), {
       target: { value: "Old class" },
     });
+    fireEvent.change(screen.getByLabelText("Number of seats"), {
+      target: { value: "120" },
+    });
     fireEvent.submit(
-      screen.getByLabelText("Class & Shift Name").closest("form")!,
+      screen.getByLabelText("Class name and shift").closest("form")!,
     );
     fireEvent.keyDown(document, { key: "Escape" });
-    fireEvent.click(screen.getByRole("button", { name: /Create Class/i }));
-    fireEvent.change(screen.getByLabelText("Class & Shift Name"), {
+    fireEvent.click(screen.getByRole("button", { name: /Add a class/i }));
+    fireEvent.change(screen.getByLabelText("Class name and shift"), {
       target: { value: "New class" },
     });
     await act(async () =>
@@ -376,10 +414,10 @@ describe("application status and errors", () => {
       await vi.advanceTimersByTimeAsync(1500);
     });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Class & Shift Name")).toHaveValue(
+    expect(screen.getByLabelText("Class name and shift")).toHaveValue(
       "New class",
     );
-    expect(screen.getByRole("button", { name: "Create Class" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add class" })).toBeEnabled();
   });
 
   it("allows payment for a new hold after the previous application expired", async () => {
@@ -424,7 +462,11 @@ describe("application status and errors", () => {
       ),
     ).toBeDisabled();
     expect(
-      await screen.findByText("EXPIRED", {}, { timeout: 2000 }),
+      await within(
+        within(
+          screen.getByRole("region", { name: "My Applications History" }),
+        ).getByRole("table"),
+      ).findByText("Payment deadline passed", {}, { timeout: 2000 }),
     ).toBeInTheDocument();
   });
 
@@ -442,13 +484,13 @@ describe("application status and errors", () => {
   it("opens an accessible class dialog and restores focus on Escape", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Admin workspace" }));
-    const open = screen.getByRole("button", { name: /Create Class/i });
+    const open = screen.getByRole("button", { name: /Add a class/i });
     open.focus();
     fireEvent.click(open);
     expect(
-      screen.getByRole("dialog", { name: "Create New Class" }),
+      screen.getByRole("dialog", { name: "Add a class" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Class & Shift Name")).toHaveFocus();
+    expect(screen.getByLabelText("Class name and shift")).toHaveFocus();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(open).toHaveFocus();
