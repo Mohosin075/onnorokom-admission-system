@@ -19,7 +19,7 @@ Open http://localhost:3000. Swagger is available at http://localhost:8080/swagge
 ## Applicant workflow
 
 - Register with your email and password; follow the emailed verification link, then sign in.
-- Save applicant name, birth registration, date of birth, guardian, mobile number and address.
+- Open **Profile & documents** to save applicant name, birth registration, date of birth, guardian, mobile number and address, then upload documents on the same page.
 - Upload birth certificate and photograph as PNG/JPEG images, maximum 5 MB each. An academic record is optional.
 - Choose a class and submit the application with your profile and uploaded documents. Documents do **not** need prior approval. The application enters `PendingReview`; no seat is held and no payment timer runs during review.
 - Admissions staff open **Application review** to see the selected class, application reference, submitted applicant/guardian details and document previews together. Approval requires acknowledging inspection of both the birth certificate and photograph. **Request corrections** and **Reject** require written feedback.

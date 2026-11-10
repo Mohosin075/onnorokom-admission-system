@@ -136,7 +136,7 @@ export function ApplicationDialog({
             className="text-link"
             onClick={() => {
               close();
-              navigate("documents");
+              navigate("profile");
             }}
           >
             Upload documents
@@ -286,13 +286,7 @@ export function StudentSubmissions({
                         className="secondary"
                         onClick={() => navigate("profile")}
                       >
-                        Edit profile
-                      </button>
-                      <button
-                        className="secondary"
-                        onClick={() => navigate("documents")}
-                      >
-                        Replace documents
+                        Edit profile &amp; documents
                       </button>
                       <button
                         className="primary"

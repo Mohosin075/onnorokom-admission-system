@@ -401,8 +401,7 @@ function Workspace({
     : ([
         ["classes", "Available classes", BookOpen],
         ["applications", "My applications", FileText],
-        ["profile", "My profile", UserRound],
-        ["documents", "My documents", ShieldCheck],
+        ["profile", "Profile & documents", UserRound],
       ] as const);
   const ready =
     !!account.birthRegistration &&
@@ -483,7 +482,7 @@ function Workspace({
             {notice}
           </div>
         )}
-        {!admin && !ready && (
+        {!admin && !ready && tab !== "profile" && (
           <div className="next-step">
             <div>
               <strong>Get ready to apply</strong>
@@ -493,12 +492,7 @@ function Workspace({
                 application.
               </p>
             </div>
-            <button
-              className="secondary"
-              onClick={() =>
-                setTab(account.birthRegistration ? "documents" : "profile")
-              }
-            >
+            <button className="secondary" onClick={() => setTab("profile")}>
               Continue setup
               <ArrowRight size={16} />
             </button>
@@ -672,7 +666,7 @@ function Workspace({
         )}
         {tab === "profile" && (
           <section className="panel">
-            <h2>Applicant & guardian details</h2>
+            <h2>1. Applicant &amp; guardian details</h2>
             <p className="muted">
               Use your official document details. Name, birth registration and
               date of birth are locked while an application is under review or
@@ -753,9 +747,9 @@ function Workspace({
             </form>
           </section>
         )}
-        {tab === "documents" && (
+        {tab === "profile" && (
           <section className="panel">
-            <h2>Your admission documents</h2>
+            <h2>2. Admission documents</h2>
             <p className="muted">
               Readable PNG or JPEG images, up to 5 MB. Upload your birth
               certificate and photograph, then apply to a class. No prior
@@ -817,6 +811,13 @@ function Workspace({
                 </article>
               ))}
             </div>
+            <button
+              className="primary"
+              disabled={busy || !ready}
+              onClick={() => setTab("classes")}
+            >
+              Continue to available classes <ArrowRight size={16} />
+            </button>
           </section>
         )}
         {tab === "applications" && (
