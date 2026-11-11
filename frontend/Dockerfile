@@ -20,6 +20,7 @@ CMD ["npm", "test"]
 # Production stage
 FROM nginx:alpine AS runtime
 
+COPY nginx.main.conf /etc/nginx/nginx.conf
 COPY --from=build /app/nginx.generated.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 

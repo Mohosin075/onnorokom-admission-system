@@ -21,6 +21,11 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (Exception) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // The disconnected caller cannot receive JSON; cancel its database work quietly.
+            if (!context.Response.HasStarted) context.Response.StatusCode = 499;
+        }
         catch (Exception ex)
         {
             await HandleExceptionAsync(context, ex);
@@ -29,6 +34,7 @@ public class ExceptionHandlingMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        if (context.RequestAborted.IsCancellationRequested) return;
         var statusCode = HttpStatusCode.InternalServerError;
         var errorTitle = "Internal Server Error";
         var errorMessage = exception.Message;
@@ -56,6 +62,15 @@ public class ExceptionHandlingMiddleware
                 errorTitle = "Forbidden";
                 break;
 
+            case Npgsql.PostgresException { SqlState: "53300" }:
+            case Npgsql.NpgsqlException { IsTransient: true }:
+                statusCode = HttpStatusCode.ServiceUnavailable;
+                errorTitle = "Service Unavailable";
+                errorMessage = "The admission service is busy. Please try again shortly.";
+                context.Response.Headers.RetryAfter = "1";
+                _logger.LogWarning("Temporary database capacity failure: {Message}", exception.Message);
+                break;
+
             default:
                 _logger.LogError(exception, "Unhandled exception occurred: {Message}", exception.Message);
                 errorMessage = "An unexpected error occurred. Please try again later.";
@@ -78,7 +93,11 @@ public class ExceptionHandlingMiddleware
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
-        await context.Response.WriteAsync(json);
+        try
+        {
+            await context.Response.WriteAsync(json, context.RequestAborted);
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }
     }
 }
 

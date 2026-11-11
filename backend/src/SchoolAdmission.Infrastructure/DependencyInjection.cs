@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
+using System.Data.Common;
 using SchoolAdmission.Domain.Repositories;
 using SchoolAdmission.Infrastructure.BackgroundServices;
 using SchoolAdmission.Infrastructure.Persistence;
@@ -15,6 +17,19 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? configuration["DATABASE_URL"]
             ?? configuration["DB_CONNECTION_STRING"];
+
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            var connection = new NpgsqlConnectionStringBuilder(connectionString);
+            // Npgsql's ContainsKey also recognizes unset options with defaults.
+            var supplied = new DbConnectionStringBuilder { ConnectionString = connectionString };
+            var explicitPoolLimit = supplied.Keys.Cast<string>().Any(key =>
+                key.Replace(" ", "").Equals("MaximumPoolSize", StringComparison.OrdinalIgnoreCase) ||
+                key.Replace(" ", "").Equals("MaxPoolSize", StringComparison.OrdinalIgnoreCase));
+            if (!explicitPoolLimit)
+                connection.MaxPoolSize = Math.Max(connection.MinPoolSize, configuration.GetValue("Database:MaxPoolSize", 40));
+            connectionString = connection.ConnectionString;
+        }
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {

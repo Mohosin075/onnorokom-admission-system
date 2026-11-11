@@ -6,6 +6,7 @@ public interface IClassRepository
 {
     Task<ClassRoom?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
     Task<ClassRoom?> GetByIdForUpdateAsync(string id, CancellationToken cancellationToken = default);
+    Task<ClassAdmissionState?> GetAdmissionStateAsync(string id, string studentId, DateTime now, CancellationToken cancellationToken = default);
     Task<List<ClassRoom>> GetAllAsync(CancellationToken cancellationToken = default);
     Task AddAsync(ClassRoom classRoom, CancellationToken cancellationToken = default);
 }

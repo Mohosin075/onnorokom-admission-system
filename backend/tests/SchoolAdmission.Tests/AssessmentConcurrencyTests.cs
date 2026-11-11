@@ -12,6 +12,47 @@ namespace SchoolAdmission.Tests;
 public class AssessmentConcurrencyTests(PostgresFixture database) : IClassFixture<PostgresFixture>
 {
     [PostgresFact]
+    public async Task FullClassRejectsWithoutWaitingForTheClassRowLock()
+    {
+        using var factory = database.CreateAssessmentFactory();
+        using var client = factory.CreateClient();
+        var classId = await CreateClass(client);
+        using var held = await client.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20261111000000001"));
+        held.StatusCode.Should().Be(HttpStatusCode.Created);
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using var command = new NpgsqlCommand("SELECT id FROM classes WHERE id = @id FOR UPDATE", connection, transaction);
+        command.Parameters.AddWithValue("id", classId);
+        await command.ExecuteScalarAsync();
+        try
+        {
+            using var rejected = await client.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20261111000000002"))
+                .WaitAsync(TimeSpan.FromSeconds(3));
+            rejected.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        }
+        finally { await transaction.RollbackAsync(); }
+    }
+
+    [PostgresFact]
+    public async Task CancelOnAnotherHostMakesFullClassImmediatelyReservable()
+    {
+        using var first = database.CreateAssessmentFactory();
+        using var second = database.CreateAssessmentFactory();
+        using var a = first.CreateClient();
+        using var b = second.CreateClient();
+        var classId = await CreateClass(a);
+        using var created = await a.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20261111000000003"));
+        var hold = (await created.Content.ReadFromJsonAsync<CreateHoldResponse>())!;
+        using var full = await b.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20261111000000004"));
+        full.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using var cancelled = await a.SendAsync(Request(HttpMethod.Delete, $"/holds/{hold.HoldId}", "20261111000000003"));
+        cancelled.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        using var replacement = await b.SendAsync(Request(HttpMethod.Post, $"/classes/{classId}/holds", "20261111000000004"));
+        replacement.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
+    [PostgresFact]
     public async Task ConcurrentConfirmationsAcrossHosts_AllSucceedAndCountOneAdmission()
     {
         using var first = database.CreateAssessmentFactory();

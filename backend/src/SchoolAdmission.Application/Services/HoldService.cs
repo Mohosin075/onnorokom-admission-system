@@ -33,6 +33,12 @@ public class HoldService : IHoldService
         ValidateStudentId(studentId);
         studentId = studentId.Trim();
 
+        // Full classes and duplicate applications need no transaction or row lock.
+        // Positive reads are advisory: capacity is checked again after taking the lock.
+        var snapshot = await _classRepository.GetAdmissionStateAsync(classId, studentId, DateTime.UtcNow, cancellationToken)
+            ?? throw new EntityNotFoundException("Class", classId);
+        EnsureReservable(snapshot);
+
         await using var tx = await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
         // Lock class row to ensure strictly serialized seat allocation
@@ -42,17 +48,9 @@ public class HoldService : IHoldService
 
         var now = DateTime.UtcNow;
 
-        // Rule 3: Single active application limit
-        var hasActive = await _holdRepository.HasActiveHoldOrAdmissionAsync(studentId, classId, now, cancellationToken);
-        if (hasActive)
-            throw new ConflictException("Student already has an active hold or confirmed admission in this class.");
-
-        // Rule 1: No Overselling
-        var heldSeats = await _holdRepository.GetActiveHoldCountAsync(classId, now, cancellationToken);
-        var confirmedSeats = await _holdRepository.GetConfirmedCountAsync(classId, cancellationToken);
-
-        if (heldSeats + confirmedSeats >= cls.TotalSeats)
-            throw new ConflictException("No available seats left in this class.");
+        var current = await _classRepository.GetAdmissionStateAsync(classId, studentId, now, cancellationToken)
+            ?? throw new EntityNotFoundException("Class", classId);
+        EnsureReservable(current);
 
         var holdId = $"h_{Guid.NewGuid():N}";
         var hold = new SeatHold(holdId, classId, studentId, _options.HoldDurationSeconds);
@@ -155,6 +153,14 @@ public class HoldService : IHoldService
     private static string EffectiveStatus(SeatHold hold, DateTime now) =>
         hold.Status == HoldStatus.HELD && hold.ExpiresAtUtc <= now
             ? nameof(HoldStatus.EXPIRED) : hold.Status.ToString();
+
+    private static void EnsureReservable(ClassAdmissionState state)
+    {
+        if (state.HasActiveApplication)
+            throw new ConflictException("Student already has an active hold or confirmed admission in this class.");
+        if (state.OccupiedSeats >= state.TotalSeats)
+            throw new ConflictException("No available seats left in this class.");
+    }
 
     private static void ValidateStudentId(string studentId)
     {

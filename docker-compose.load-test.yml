@@ -1,0 +1,66 @@
+# Disposable stack: no normal app ports, containers or database volumes are reused.
+name: admission-load
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: admission_load
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: load_test_only
+    volumes:
+      - load_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d admission_load']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  backend:
+    build: ./backend
+    image: school-admission-load-api:latest
+    environment: &api_environment
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ApplicationMode: Assessment
+      ConnectionStrings__DefaultConnection: Host=db;Database=admission_load;Username=postgres;Password=load_test_only
+      HOLD_DURATION_SECONDS: '600'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck: &api_health
+      test: [CMD, curl, --fail, --silent, 'http://localhost:8080/health']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  backend-secondary:
+    profiles: [multi]
+    image: school-admission-load-api:latest
+    pull_policy: never
+    environment: *api_environment
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck: *api_health
+  frontend:
+    build: ./frontend
+    image: school-admission-load-ui:latest
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    depends_on:
+      backend:
+        condition: service_healthy
+  load:
+    profiles: [load]
+    image: node:22-alpine
+    working_dir: /workspace
+    entrypoint: [node, scripts/load-test.mjs]
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - ./scripts:/workspace/scripts:ro
+      - ./.local:/workspace/.local
+volumes:
+  load_data:

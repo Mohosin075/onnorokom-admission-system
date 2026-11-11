@@ -62,6 +62,7 @@ Creation returns 201; class/status/history reads and confirmation return 200; su
 Copy `.env.example` to `.env` only when overriding defaults:
 
 - `HOLD_DURATION_SECONDS`: **600** by default. Changing it requires recreating the backend container.
+- `DATABASE_MAX_POOL_SIZE`: **40** per API process by default; budget all processes together against the database connection limit. An explicit pool limit in the connection string takes precedence.
 - `VITE_API_URL`: frontend backend URL, default `/api` through the same-origin proxy. It is a build-time value: after changing it run `docker compose up --build`. An absolute `http://` or `https://` URL is also supported, and its origin is included in the generated frontend CSP.
 - `POSTGRES_PASSWORD`: local assessment default `postgres`. A custom value must also match an existing database user's password if reusing a volume.
 - `ConnectionStrings__DefaultConnection`: backend database connection override, forwarded by Compose when supplied. When omitted, Compose supplies its internal PostgreSQL connection automatically. Both API processes use the same override in the optional concurrency setup.
@@ -81,6 +82,22 @@ The backend suite includes exact unauthenticated HTTP-contract tests, real Postg
 The frontend suite includes identity switching/restoration, expiry, simulated confirmation, stale-response handling, slow polling and dialog lifecycle tests, plus the optional portal's own tests. A production frontend build runs during Docker image creation.
 
 ## Cross-process concurrency and restart verification
+
+For a Docker-only 10,000-request burst on a **separate disposable database**, run:
+
+```sh
+docker compose -f docker-compose.load-test.yml up --build --wait
+docker compose -f docker-compose.load-test.yml run --rm load --exercise yes --assert yes --count 10000 --seats 5 --timeout 10000 --bases http://frontend:3000/api --output .local/load-tests/proxy.json
+docker compose -f docker-compose.load-test.yml --profile multi up --wait
+docker compose -f docker-compose.load-test.yml run --rm load --exercise yes --assert yes --count 10000 --seats 5 --timeout 10000 --bases http://backend:8080,http://backend-secondary:8080 --output .local/load-tests/two-apis.json
+docker compose -f docker-compose.load-test.yml --profile multi --profile load down --volumes
+```
+
+The load generator creates fresh test classes and independent student identities, sends all reservation attempts in one burst without retries, and saves HTTP codes, client errors, latency percentiles and final seat counts. `--assert yes` fails unless five holds and 9995 conflicts arrive within the per-request deadline with no unexpected responses or client errors. This measures reservation traffic, not complete browser sessions; results depend on machine resources. The dedicated Compose file shares no application data volumes or public ports with the normal app. Its final command intentionally removes only its disposable test volume.
+
+Admission reads use a fast full-class check, followed by a locked transactional recheck for successful reservations. Pool limits default to 40 connections per API; configure `Database__MaxPoolSize` or an explicit connection-string pool limit when changing the number of processes or PostgreSQL capacity.
+
+Measured results and limitations are recorded in [LOAD_TEST_RESULTS.md](LOAD_TEST_RESULTS.md).
 
 An optional second API process can share the same PostgreSQL database:
 

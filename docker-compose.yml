@@ -38,6 +38,7 @@ services:
       - ConnectionStrings__DefaultConnection=${ConnectionStrings__DefaultConnection:-Host=db;Port=5432;Database=admission_portal;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres};}
       - ApplicationMode=${APPLICATION_MODE:-Assessment}
       - HOLD_DURATION_SECONDS=${HOLD_DURATION_SECONDS:-600}
+      - Database__MaxPoolSize=${DATABASE_MAX_POOL_SIZE:-40}
       - Portal__PublicUrl=${PUBLIC_URL:-http://localhost:3000}
       - Portal__InstitutionName=${INSTITUTION_NAME:-}
       - Bootstrap__AdminEmail=${ADMIN_EMAIL:-}
@@ -63,6 +64,10 @@ services:
       retries: 12
 
   frontend:
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     build:
       context: ./frontend
       dockerfile: Dockerfile
