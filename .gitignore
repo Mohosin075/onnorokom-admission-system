@@ -21,15 +21,13 @@ yarn-debug.log*
 yarn-error.log*
 
 ## OS & IDE
-.vscode/
 .idea/
 .DS_Store
 Thumbs.db
-.env
-**/.env
 .secrets/
 
 # Private assignment originals and extracted text stay local.
 /Asst_Software_Engineer_Project_Assignment.pdf
 /requirement.txt
 
+config.bat
