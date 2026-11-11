@@ -7,6 +7,7 @@ import { api, getErrorMessage } from "../services/api";
 import type { ClassItem, HoldItem } from "../types";
 import { ActiveHoldCard } from "./ActiveHoldCard";
 import { ClassList } from "./ClassList";
+import { useClassDetails } from "../hooks/useClassDetails";
 
 interface EnrollmentWizardProps {
   classId: string | null;
@@ -96,7 +97,8 @@ export function EnrollmentWizard({
       clearInterval(clock);
     };
   }, []);
-  const selectedClass = classes.find(
+  const classDetails = useClassDetails(hold?.classId ?? selectedClassId);
+  const selectedClass = classDetails.data ?? classes.find(
     (item) => item.id === (hold?.classId ?? selectedClassId),
   );
   const complete = hold?.status === "CONFIRMED";
@@ -126,6 +128,16 @@ export function EnrollmentWizard({
   );
   const canContinue =
     isValidStudentId && lookupCurrent && !lookupError && !selectedExisting;
+  const classReady = Boolean(classDetails.data && !classDetails.error && !classDetails.loading);
+  const classFeedback = classDetails.loading ? (
+    <p role="status">{t("Checking class availability…")}</p>
+  ) : classDetails.error ? (
+    <div role="alert" className="admission-history-error">
+      <p>{t("We could not refresh this class. Try again to check the latest availability.")}</p>
+      <p>{t(classDetails.error)}</p>
+      <button type="button" onClick={classDetails.retry}>{t("Try again")}</button>
+    </div>
+  ) : null;
   const lookupFeedback = checking ? (
     <p role="status">{t("Checking existing applications…")}</p>
   ) : lookupError ? (
@@ -234,7 +246,7 @@ export function EnrollmentWizard({
   );
 
   const reserve = async () => {
-    if (submitting.current || !selectedClass || !canContinue) return;
+    if (submitting.current || !selectedClass || !canContinue || !classReady || selectedClass.availableSeats <= 0) return;
     const submittedIdentity = studentId;
     submitting.current = true;
     setReserving(true);
@@ -410,6 +422,7 @@ export function EnrollmentWizard({
           </form>
         )}
         {step === 1 && !holdId && lookupFeedback}
+        {step === 1 && !holdId && classFeedback}
         {step === 1 && !holdId && !selectedClassId && (
           <div>
             <p className="admission-wizard-identity">
@@ -525,6 +538,7 @@ export function EnrollmentWizard({
                   disabled={
                     reserving ||
                     !canContinue ||
+                    !classReady ||
                     !selectedClass ||
                     selectedClass.availableSeats <= 0
                   }
@@ -540,6 +554,7 @@ export function EnrollmentWizard({
         )}
         {holdId && (
           <>
+            {classFeedback}
             <h3>
               {complete
                 ? t("Admission complete")
@@ -559,7 +574,9 @@ export function EnrollmentWizard({
             <ActiveHoldCard
               key={`${studentId}:${holdId}`}
               holdId={holdId}
-              classes={classes}
+              classes={classDetails.data
+                ? [classDetails.data, ...classes.filter((item) => item.id !== classDetails.data?.id)]
+                : classes}
               onStatusChange={setHold}
               onHoldUpdated={(updated) => {
                 if (updated) setHold(updated);

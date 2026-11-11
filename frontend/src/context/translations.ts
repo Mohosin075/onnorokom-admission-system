@@ -1,5 +1,8 @@
 // English text is the lookup key and the fallback for unexpected server messages.
 export const bangla: Record<string, string> = {
+  "Checking class availability…": "ক্লাসের খালি আসন যাচাই করা হচ্ছে…",
+  "We could not refresh this class. Try again to check the latest availability.":
+    "এই ক্লাসের সর্বশেষ তথ্য পাওয়া যায়নি। খালি আসন যাচাই করতে আবার চেষ্টা করুন।",
   "Admission portal": "ভর্তির পোর্টাল",
   "Official Admission Portal": "অফিসিয়াল ভর্তি পোর্টাল",
   "Academic Session 2026–2027": "শিক্ষাবর্ষ ২০২৬–২০২৭",

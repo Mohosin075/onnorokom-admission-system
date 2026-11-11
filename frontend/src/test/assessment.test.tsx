@@ -22,6 +22,7 @@ afterEach(() => {
 vi.mock("../services/api", () => ({
   api: {
     getClasses: vi.fn(),
+    getClassById: vi.fn(),
     getMyHolds: vi.fn(),
     getHoldById: vi.fn(),
     createHold: vi.fn(),
@@ -58,6 +59,10 @@ async function proceedIdentity(name = "Continue to review") {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(api.getClassById).mockImplementation(async (id) => ({
+    id, name: "Class 6 - Morning", totalSeats: 5,
+    heldSeats: 0, confirmedSeats: 0, availableSeats: 5,
+  }));
   vi.mocked(api.getClasses).mockResolvedValue([
     {
       id: "c_test",
@@ -282,9 +287,9 @@ describe("identity-aware enrollment", () => {
     expect(
       screen.getByRole("group", { name: "Review and reserve" }),
     ).toHaveTextContent("Class 7 - Day");
-    expect(
+    await waitFor(() => expect(
       screen.getByRole("button", { name: "Reserve seat and continue" }),
-    ).toBeEnabled();
+    ).toBeEnabled());
     expect(api.createHold).not.toHaveBeenCalled();
   });
 
@@ -423,6 +428,51 @@ describe("identity-aware enrollment", () => {
 });
 
 describe("enrollment wizard and tabs", () => {
+  it("still confirms a held seat if refreshing class details fails", async () => {
+    localStorage.setItem("school_admission_student_id", STUDENT_A);
+    localStorage.setItem("school_admission_active_hold_id", "h_saved");
+    vi.mocked(api.getClassById).mockRejectedValue(new Error("Class details offline"));
+    render(<App />);
+    expect(await screen.findByText("Class details offline")).toBeVisible();
+    const pay = await screen.findByRole("button", { name: "Pay Admission Fee" });
+    await waitFor(() => expect(pay).toBeEnabled());
+    fireEvent.click(pay);
+    await screen.findByText("Admission Confirmed");
+    expect(api.getClassById).toHaveBeenCalledWith("c_test");
+    expect(api.confirmHold).toHaveBeenCalledWith("h_saved", STUDENT_A);
+    expect(api.createHold).not.toHaveBeenCalled();
+  });
+  it("uses the selected-class endpoint instead of stale catalog seat counts", async () => {
+    vi.mocked(api.getClassById).mockResolvedValue({
+      id: "c_test", name: "Class 6 - Updated", totalSeats: 5,
+      heldSeats: 3, confirmedSeats: 2, availableSeats: 0,
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Apply Now" }));
+    await proceedIdentity();
+    await waitFor(() => expect(api.getClassById).toHaveBeenCalledWith("c_test"));
+    const review = screen.getByRole("group", { name: "Review and reserve" });
+    expect(review).toHaveTextContent("Class 6 - Updated");
+    expect(within(review).getByText("0")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Reserve seat and continue" })).toBeDisabled();
+    expect(api.createHold).not.toHaveBeenCalled();
+  });
+
+  it("blocks reservation on a class-detail failure and recovers through retry", async () => {
+    vi.mocked(api.getClassById).mockRejectedValueOnce(new Error("Class unavailable"));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Apply Now" }));
+    await proceedIdentity();
+    expect(await screen.findByText("Class unavailable")).toBeVisible();
+    const reserve = screen.getByRole("button", { name: "Reserve seat and continue" });
+    expect(reserve).toBeDisabled();
+    expect(api.createHold).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(reserve).toBeEnabled());
+    expect(screen.queryByText("Class unavailable")).not.toBeInTheDocument();
+    expect(api.getClassById).toHaveBeenCalledTimes(2);
+    expect(api.createHold).not.toHaveBeenCalled();
+  });
   it("keeps the header number when applying and still requires review before reserving", async () => {
     render(<App />);
     const number = within(screen.getByRole("banner")).getByLabelText("Birth registration number");
@@ -470,6 +520,9 @@ describe("enrollment wizard and tabs", () => {
     expect(
       screen.getByRole("group", { name: "Review and reserve" }),
     ).toHaveTextContent(STUDENT_B);
+    await waitFor(() => expect(
+      screen.getByRole("button", { name: "Reserve seat and continue" }),
+    ).toBeEnabled());
     fireEvent.click(
       screen.getByRole("button", { name: "Reserve seat and continue" }),
     );
