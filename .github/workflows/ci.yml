@@ -11,7 +11,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Build and start all services
-        run: docker compose -f docker-compose.yml -f docker-compose.concurrency.yml up --build --wait --wait-timeout 180
+        run: docker compose --profile concurrency up --build --wait --wait-timeout 180
       - name: Backend unit and real PostgreSQL integration tests
         run: docker compose --profile test run --build --rm tests
       - name: Frontend regression tests and lint
@@ -24,13 +24,13 @@ jobs:
           python scripts/verify-assessment.py --exercise --secondary-api http://localhost:8081
       - name: Restart containers and verify persistence
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.concurrency.yml down
-          docker compose -f docker-compose.yml -f docker-compose.concurrency.yml up --wait --wait-timeout 180
+          docker compose --profile concurrency down
+          docker compose --profile concurrency up --wait --wait-timeout 180
           python scripts/verify-assessment.py --verify-persistence --secondary-api http://localhost:8081
           python scripts/smoke.py
       - name: Container logs
         if: failure()
-        run: docker compose -f docker-compose.yml -f docker-compose.concurrency.yml logs
+        run: docker compose --profile concurrency logs
       - name: Stop services
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.concurrency.yml --profile test down --volumes
+        run: docker compose --profile concurrency --profile test down --volumes

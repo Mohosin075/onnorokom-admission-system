@@ -17,7 +17,7 @@ No `.env`, account setup, SMTP service or payment gateway is required. Docker bu
 - Swagger: **http://localhost:8080/swagger**
 - Health: **http://localhost:8080/health**
 
-The app does not seed example classes or admissions. Use **Create Class (Admin)** in the UI to create each class/shift with its own seat capacity.
+The app does not seed example classes or admissions. Open **Admin workspace** and use **Add a class** to create each class/shift with its own seat capacity.
 
 ## Assignment flow
 
@@ -83,34 +83,22 @@ The frontend suite includes identity switching/restoration, expiry, simulated co
 
 ## Cross-process concurrency and restart verification
 
-For a Docker-only 10,000-request burst on a **separate disposable database**, run:
-
-```sh
-docker compose -f docker-compose.load-test.yml up --build --wait
-docker compose -f docker-compose.load-test.yml run --rm load --exercise yes --assert yes --count 10000 --seats 5 --timeout 10000 --bases http://frontend:3000/api --output .local/load-tests/proxy.json
-docker compose -f docker-compose.load-test.yml --profile multi up --wait
-docker compose -f docker-compose.load-test.yml run --rm load --exercise yes --assert yes --count 10000 --seats 5 --timeout 10000 --bases http://backend:8080,http://backend-secondary:8080 --output .local/load-tests/two-apis.json
-docker compose -f docker-compose.load-test.yml --profile multi --profile load down --volumes
-```
-
-The load generator creates fresh test classes and independent student identities, sends all reservation attempts in one burst without retries, and saves HTTP codes, client errors, latency percentiles and final seat counts. `--assert yes` fails unless five holds and 9995 conflicts arrive within the per-request deadline with no unexpected responses or client errors. This measures reservation traffic, not complete browser sessions; results depend on machine resources. The dedicated Compose file shares no application data volumes or public ports with the normal app. Its final command intentionally removes only its disposable test volume.
-
 Admission reads use a fast full-class check, followed by a locked transactional recheck for successful reservations. Pool limits default to 40 connections per API; configure `Database__MaxPoolSize` or an explicit connection-string pool limit when changing the number of processes or PostgreSQL capacity.
 
-Measured results and limitations are recorded in [LOAD_TEST_RESULTS.md](LOAD_TEST_RESULTS.md).
+Previous local 10,000-request reservation checks returned exactly five holds and 9995 conflicts without client errors at a ten-second deadline, including across two API processes. The servers and load generator shared one machine; these measurements do not represent complete browser sessions or guarantee throughput on other hardware.
 
 An optional second API process can share the same PostgreSQL database:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.concurrency.yml up --build --wait
+docker compose --profile concurrency up --build --wait
 ```
 
 It is reachable at http://localhost:8081. For an **isolated/disposable** stack, an optional Python 3 verifier exercises all eight admission endpoints and sends 30 concurrent HTTP reservation requests across both API processes for five seats:
 
 ```sh
 python scripts/verify-assessment.py --exercise --secondary-api http://localhost:8081
-docker compose -f docker-compose.yml -f docker-compose.concurrency.yml down
-docker compose -f docker-compose.yml -f docker-compose.concurrency.yml up --wait
+docker compose --profile concurrency down
+docker compose --profile concurrency up --wait
 python scripts/verify-assessment.py --verify-persistence --secondary-api http://localhost:8081
 ```
 
@@ -120,4 +108,4 @@ python scripts/verify-assessment.py --verify-persistence --secondary-api http://
 
 `backend/` contains Domain, Application, Infrastructure and API projects plus automated tests. `frontend/` contains the React app and frontend tests. Design assumptions are in `ASSUMPTIONS.md`; AI assistance and verification are documented in `AI_USAGE.md`.
 
-The later authenticated portal is retained separately as an optional mode. It does not change the default assignment flow or expose its login, review, payment or document routes in Assessment mode. Setting `APPLICATION_MODE=Portal` selects its backend and frontend build; it requires its own account/provider configuration and a longer hold window. The production Compose overlay explicitly selects Portal mode; see [PRODUCTION.md](PRODUCTION.md). No real email/SMS/Stripe integration is invoked by the default assignment workflow.
+The later authenticated portal is retained separately as an optional mode. It does not change the default assignment flow or expose its login, review, payment or document routes in Assessment mode. For a local portal preview, set `APPLICATION_MODE=Portal` and `HOLD_DURATION_SECONDS=2100`, configure its accounts/providers, and run `docker compose up --build`. Public production deployment is outside this assignment setup. No real email/SMS/Stripe integration is invoked by the default assignment workflow.
