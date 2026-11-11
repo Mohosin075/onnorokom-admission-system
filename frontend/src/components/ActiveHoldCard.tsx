@@ -263,7 +263,7 @@ export const ActiveHoldCard: React.FC<ActiveHoldCardProps> = ({
             {isExpired && (
               <span className="inline-flex items-center px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-bold text-xs border border-rose-200">
                 <AlertTriangle className="w-3.5 h-3.5 mr-1 text-rose-600" />
-                {t("Payment deadline passed")}
+                EXPIRED · {t("Payment deadline passed")}
               </span>
             )}
 

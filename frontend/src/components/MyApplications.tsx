@@ -99,7 +99,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
           <AlertTriangle className="w-3.5 h-3.5 mr-1 text-rose-600" />
-          {t("Payment deadline passed")}
+          EXPIRED · {t("Payment deadline passed")}
         </span>
       );
     }
@@ -171,7 +171,7 @@ export const MyApplications: React.FC<MyApplicationsProps> = ({
             <option value="all">{t("All applications")}</option>
             <option value="HELD">{t("Waiting for payment")}</option>
             <option value="CONFIRMED">{t("Admitted")}</option>
-            <option value="EXPIRED">{t("Payment deadline passed")}</option>
+            <option value="EXPIRED">EXPIRED · {t("Payment deadline passed")}</option>
             <option value="CANCELLED">{t("Cancelled")}</option>
           </select>
           <span>

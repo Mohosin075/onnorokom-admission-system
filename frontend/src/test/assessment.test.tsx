@@ -1155,14 +1155,34 @@ describe("application status and errors", () => {
         { timeout: 2000 },
       ),
     ).toBeDisabled();
+    expect(await within(screen.getByRole("region", { name: "Enrollment form" }))
+      .findByText("EXPIRED · Payment deadline passed")).toBeVisible();
     fireEvent.click(screen.getByRole("tab", { name: "My applications" }));
     expect(
       await within(
         within(
           screen.getByRole("region", { name: "My Applications History" }),
         ).getByRole("table"),
-      ).findByText("Payment deadline passed", {}, { timeout: 2000 }),
+      ).findByText("EXPIRED · Payment deadline passed", {}, { timeout: 2000 }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps EXPIRED visible in Bangla status badges and the history filter", async () => {
+    localStorage.setItem("school_admission_language", "bn");
+    localStorage.setItem("school_admission_student_id", STUDENT_A);
+    localStorage.setItem("school_admission_active_hold_id", "h_expired_bn");
+    const expired = { ...hold("h_expired_bn"), status: "EXPIRED" as const };
+    vi.mocked(api.getHoldById).mockResolvedValue(expired);
+    vi.mocked(api.getMyHolds).mockResolvedValue([expired]);
+    render(<App />);
+    expect(await within(screen.getByRole("region", { name: "ভর্তির আবেদন ফরম" }))
+      .findByText("EXPIRED · ফি দেওয়ার সময় শেষ")).toBeVisible();
+    expect(screen.getByRole("button", { name: "আসন সংরক্ষণের সময় শেষ" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("tab", { name: "আমার আবেদন" }));
+    const history = screen.getByRole("region", { name: "আমার আবেদনের ইতিহাস" });
+    expect(await within(history).findByText("EXPIRED · ফি দেওয়ার সময় শেষ", { selector: "span" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "EXPIRED · ফি দেওয়ার সময় শেষ" })).toHaveValue("EXPIRED");
+    expect(api.confirmHold).not.toHaveBeenCalled();
   });
 
   it("shows a warning when background seat polling loses the server", async () => {
