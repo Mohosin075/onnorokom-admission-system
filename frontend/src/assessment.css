@@ -2166,6 +2166,9 @@
   gap: 20px;
   flex-shrink: 0;
 }
+.admission-shell .admission-topbar > .admission-identity {
+  flex: 0 1 340px;
+}
 .admission-topbar-actions > .admission-primary {
   min-height: 44px;
   padding: 10px 16px;
@@ -2183,6 +2186,10 @@
   height: 44px;
 }
 @media (max-width: 600px) {
+  .admission-shell .admission-topbar > .admission-identity {
+    flex-basis: 100%;
+    width: 100%;
+  }
   .admission-topbar-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 112px;

@@ -135,7 +135,7 @@ export function ClassList({
             })}
         {!management && !onSelectHold && (
           <span>
-            {t("Choose a class. Enter the student's number in the next step.")}
+            {t("Choose a class. Enter the student's number at the top of the page.")}
           </span>
         )}
       </div>

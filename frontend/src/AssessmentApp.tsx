@@ -12,7 +12,6 @@ import { useStudent } from "./context/student-store";
 import { Navbar } from "./components/Navbar";
 import { ClassList } from "./components/ClassList";
 import { EnrollmentWizard } from "./components/EnrollmentWizard";
-import { StudentIdentityInput } from "./components/StudentIdentityInput";
 import { MyApplications } from "./components/MyApplications";
 import { CreateClassModal } from "./components/CreateClassModal";
 import { AdmissionDetailsModal } from "./components/AdmissionDetailsModal";
@@ -141,12 +140,16 @@ function MainDashboard() {
   );
 
   useEffect(() => {
-    if (enrollmentVisible && tab === "browse" && workspace === "student")
-      enrollmentSection.current?.scrollIntoView?.({
+    if (enrollmentVisible && tab === "browse" && workspace === "student") {
+      const target = enrollment?.holdId
+        ? enrollmentSection.current
+        : document.getElementById("header-student-id");
+      target?.scrollIntoView?.({
         behavior: "smooth",
         block: "start",
       });
-  }, [enrollmentVisible, enrollment?.session, tab, workspace]);
+    }
+  }, [enrollmentVisible, enrollment?.session, enrollment?.holdId, tab, workspace]);
 
   const updateApplication = (updated?: HoldItem) => {
     if (updated)
@@ -170,8 +173,7 @@ function MainDashboard() {
   };
   const startEnrollment = (item: ClassItem) => {
     manualEnrollmentActive.current = true;
-    manualNavigationIdentity.current = "";
-    setStudentId("");
+    manualNavigationIdentity.current = studentId;
     setActiveHoldId(null);
     setAdmissionDetails(null);
     setEnrollment({
@@ -452,10 +454,9 @@ function MainDashboard() {
                 <h2>{t("Find your applications")}</h2>
                 <p>
                   {t(
-                    "Enter the birth registration number used for your application. Your applications will appear below.",
+                    "Enter the birth registration number at the top of the page. Your applications will appear below.",
                   )}
                 </p>
-                <StudentIdentityInput id="history-student-id" />
               </div>
             )}
             <section

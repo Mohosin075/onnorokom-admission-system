@@ -6,7 +6,6 @@ import { useStudent } from "../context/student-store";
 import { api, getErrorMessage } from "../services/api";
 import type { ClassItem, HoldItem } from "../types";
 import { ActiveHoldCard } from "./ActiveHoldCard";
-import { StudentIdentityInput } from "./StudentIdentityInput";
 import { ClassList } from "./ClassList";
 
 interface EnrollmentWizardProps {
@@ -105,9 +104,9 @@ export function EnrollmentWizard({
   useEffect(() => {
     const target =
       effectiveStep === 0
-        ? panel.current?.querySelector<HTMLInputElement>("input")
+        ? document.getElementById("header-student-id")
         : panel.current;
-    target?.focus({ preventScroll: true });
+    target?.focus({ preventScroll: effectiveStep !== 0 });
   }, [effectiveStep, selectedClassId]);
   const reservationActive =
     hold?.status === "HELD" && new Date(hold.expiresAt).getTime() > now;
@@ -372,10 +371,12 @@ export function EnrollmentWizard({
             <h3>{t("Who is applying?")}</h3>
             <p>
               {t(
-                "Enter the student's 17-digit birth registration number. Use the same number to find this application later.",
+                "Enter the student's 17-digit birth registration number at the top of the page. Use the same number to find this application later.",
               )}
             </p>
-            <StudentIdentityInput id="enrollment-student-id" enrollment />
+            <p className="admission-wizard-identity">
+              {t("Birth registration number:")} <strong>{studentId}</strong>
+            </p>
             {lookupFeedback}
             {selectedExisting && existingNotice(selectedExisting)}
             {!selectedClassId && existingApplications.length > 0 && (

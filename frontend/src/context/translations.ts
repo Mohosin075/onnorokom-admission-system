@@ -1,5 +1,7 @@
 // English text is the lookup key and the fallback for unexpected server messages.
 export const bangla: Record<string, string> = {
+  "Enter the student's 17-digit birth registration number at the top of the page. Use the same number to find this application later.":
+    "পেজের উপরে শিক্ষার্থীর ১৭ অঙ্কের জন্ম নিবন্ধন নম্বর দিন। পরে এই নম্বর দিয়েই আবেদন খুঁজে পাবেন।",
   "Admission portal": "ভর্তির পোর্টাল",
   "Official Admission Portal": "অফিসিয়াল ভর্তি পোর্টাল",
   "Academic Session 2026–2027": "শিক্ষাবর্ষ ২০২৬–২০২৭",
@@ -7,8 +9,8 @@ export const bangla: Record<string, string> = {
   "Use your birth registration number to find your applications or continue payment.":
     "জন্ম নিবন্ধন নম্বর দিয়ে আপনার আবেদন খুঁজুন বা ফি দেওয়া চালিয়ে যান।",
   "Find my applications": "আমার আবেদন খুঁজুন",
-  "Choose a class. Enter the student's number in the next step.":
-    "ক্লাস বেছে নিন। পরের ধাপে শিক্ষার্থীর জন্ম নিবন্ধন নম্বর দিন।",
+  "Choose a class. Enter the student's number at the top of the page.":
+    "ক্লাস বেছে নিন। পেজের উপরে শিক্ষার্থীর জন্ম নিবন্ধন নম্বর দিন।",
   "17 digits entered.": "১৭ অঙ্ক দেওয়া হয়েছে।",
   "Checking existing applications…": "আগের আবেদন যাচাই করা হচ্ছে…",
   "We could not check previous applications. Try again before continuing.":
@@ -38,8 +40,8 @@ export const bangla: Record<string, string> = {
     "পেমেন্ট সফলভাবে সম্পন্ন হয়েছে এবং আপনার ভর্তি নিশ্চিত করা হয়েছে।",
   Done: "ঠিক আছে",
   "Find your applications": "আপনার আবেদন খুঁজুন",
-  "Enter the birth registration number used for your application. Your applications will appear below.":
-    "আবেদনে ব্যবহার করা জন্ম নিবন্ধন নম্বর দিন। আপনার আবেদনগুলো নিচে দেখা যাবে।",
+  "Enter the birth registration number at the top of the page. Your applications will appear below.":
+    "পেজের উপরে জন্ম নিবন্ধন নম্বর দিন। আপনার আবেদনগুলো নিচে দেখা যাবে।",
   "Open Browse classes to choose a class and start your application.":
     "‘ক্লাসের তালিকা’ খুলে ক্লাস বেছে আবেদন শুরু করুন।",
   "Use this number to find or start your applications.":

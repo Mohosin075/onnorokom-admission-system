@@ -1,4 +1,5 @@
 import { useLanguage } from "../context/language-store";
+import { StudentIdentityInput } from "./StudentIdentityInput";
 import {
   BookOpen,
   GraduationCap,
@@ -91,6 +92,9 @@ export function Navbar({
               : t("Add classes and see how many seats are left.")}
           </p>
         </div>
+        {workspace === "student" && (
+          <StudentIdentityInput id="header-student-id" />
+        )}
         <div className="admission-topbar-actions">
           {workspace === "student" && (
             <button className="admission-primary" onClick={onNewStudent}>

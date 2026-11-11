@@ -47,7 +47,7 @@ const hold = (
 
 async function proceedIdentity(name = "Continue to review") {
   const input = document.getElementById(
-    "enrollment-student-id",
+    "header-student-id",
   ) as HTMLInputElement | null;
   if (input && !input.value)
     fireEvent.change(input, { target: { value: STUDENT_A } });
@@ -132,10 +132,10 @@ describe("student identity and restoration", () => {
     render(<DefaultApp />);
     expect(
       within(screen.getByRole("banner")).queryByRole("textbox"),
-    ).not.toBeInTheDocument();
+    ).toHaveValue("");
     expect(
       screen.queryByLabelText("Birth registration number"),
-    ).not.toBeInTheDocument();
+    ).toBeVisible();
     expect(
       await screen.findByRole("button", { name: /Apply Now/i }),
     ).toBeEnabled();
@@ -147,16 +147,16 @@ describe("student identity and restoration", () => {
     render(<App />);
     expect(
       screen.queryByLabelText("Birth registration number"),
-    ).not.toBeInTheDocument();
+    ).toHaveValue("");
     fireEvent.click(await screen.findByRole("button", { name: "Apply Now" }));
     expect(
       within(
-        screen.getByRole("region", { name: "Enrollment form" }),
+        screen.getByRole("banner"),
       ).getByLabelText("Birth registration number"),
     ).toHaveValue("");
     expect(
       within(screen.getByRole("banner")).queryByRole("textbox"),
-    ).not.toBeInTheDocument();
+    ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Continue to review" }),
     ).toBeDisabled();
@@ -423,6 +423,17 @@ describe("identity-aware enrollment", () => {
 });
 
 describe("enrollment wizard and tabs", () => {
+  it("keeps the header number when applying and still requires review before reserving", async () => {
+    render(<App />);
+    const number = within(screen.getByRole("banner")).getByLabelText("Birth registration number");
+    fireEvent.change(number, { target: { value: STUDENT_B } });
+    fireEvent.click(await screen.findByRole("button", { name: "Apply Now" }));
+    expect(number).toHaveValue(STUDENT_B);
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    await proceedIdentity();
+    expect(screen.getByRole("group", { name: "Review and reserve" })).toHaveTextContent(STUDENT_B);
+    expect(api.createHold).not.toHaveBeenCalled();
+  });
   it("starts a blank new student form from a saved admission and reserves for the new identity", async () => {
     localStorage.setItem("school_admission_student_id", STUDENT_A);
     localStorage.setItem("school_admission_active_hold_id", "h_previous");
@@ -687,7 +698,7 @@ describe("application status and errors", () => {
       target: { value: "bn" },
     });
     fireEvent.click(await screen.findByRole("button", { name: "আবেদন করুন" }));
-    expect(screen.getByLabelText("জন্ম নিবন্ধন নম্বর")).toHaveValue("");
+    expect(screen.getByLabelText("জন্ম নিবন্ধন নম্বর")).toHaveValue(STUDENT_A);
     fireEvent.change(screen.getByLabelText("জন্ম নিবন্ধন নম্বর"), {
       target: { value: STUDENT_A },
     });
@@ -936,8 +947,8 @@ describe("application status and errors", () => {
       await within(catalog).findByRole("button", { name: "Apply Now" }),
     );
     const number = screen.getByLabelText("Birth registration number");
-    expect(number).toHaveValue("");
-    expect(localStorage.getItem("school_admission_student_id")).toBeNull();
+    expect(number).toHaveValue(STUDENT_A);
+    expect(localStorage.getItem("school_admission_student_id")).toBe(STUDENT_A);
     expect(api.createHold).not.toHaveBeenCalled();
     fireEvent.change(number, { target: { value: STUDENT_A } });
     fireEvent.click(
