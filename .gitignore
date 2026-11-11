@@ -29,3 +29,7 @@ Thumbs.db
 **/.env
 .secrets/
 
+# Private assignment originals and extracted text stay local.
+/Asst_Software_Engineer_Project_Assignment.pdf
+/requirement.txt
+
