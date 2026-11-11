@@ -369,11 +369,6 @@ export function EnrollmentWizard({
             }}
           >
             <h3>{t("Who is applying?")}</h3>
-            <p>
-              {t(
-                "Enter the student's 17-digit birth registration number at the top of the page. Use the same number to find this application later.",
-              )}
-            </p>
             <p className="admission-wizard-identity">
               {t("Birth registration number:")} <strong>{studentId}</strong>
             </p>

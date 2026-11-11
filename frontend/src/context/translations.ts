@@ -1,7 +1,5 @@
 // English text is the lookup key and the fallback for unexpected server messages.
 export const bangla: Record<string, string> = {
-  "Enter the student's 17-digit birth registration number at the top of the page. Use the same number to find this application later.":
-    "পেজের উপরে শিক্ষার্থীর ১৭ অঙ্কের জন্ম নিবন্ধন নম্বর দিন। পরে এই নম্বর দিয়েই আবেদন খুঁজে পাবেন।",
   "Admission portal": "ভর্তির পোর্টাল",
   "Official Admission Portal": "অফিসিয়াল ভর্তি পোর্টাল",
   "Academic Session 2026–2027": "শিক্ষাবর্ষ ২০২৬–২০২৭",
